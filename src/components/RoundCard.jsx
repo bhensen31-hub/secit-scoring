@@ -5,7 +5,21 @@ import {
   matchStatusLabel,
   matchPoints,
   calculateCashGameStandings,
+  calculateCashGamePairScorecard,
 } from '../lib/scoring';
+
+function formatToPar(val) {
+  if (val === null || val === undefined) return '–';
+  if (val === 0) return 'E';
+  return val > 0 ? `+${val}` : `${val}`;
+}
+
+function toParColor(val) {
+  if (val === null || val === undefined) return 'text-fairway-500';
+  if (val < 0) return 'text-red-400';
+  if (val === 0) return 'text-white';
+  return 'text-fairway-500';
+}
 
 const FORMAT_ICONS = {
   cash_game: '💰',
@@ -56,38 +70,60 @@ export default function RoundCard({ round, allScores }) {
 // ─── Cash Game Body ───────────────────────────────────────────────────────────
 function CashGameBody({ round, allScores }) {
   const standings = calculateCashGameStandings(allScores || {}, round);
-  const holesPlayed = standings[0]?.holeDetails?.filter(h => h.pts !== null).length ?? 0;
 
   return (
     <div className="divide-y divide-fairway-700/40">
-      {standings.map((pair, rank) => (
-        <Link
-          key={pair.matchupId}
-          to={`/matchup/${pair.matchupId}`}
-          className="flex items-center gap-3 px-4 py-3 hover:bg-fairway-700/30 transition-colors"
-        >
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-            ${rank === 0 && pair.points > 0 ? 'bg-gold-500 text-fairway-900' : 'bg-fairway-700 text-fairway-400'}`}>
-            {rank + 1}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-medium">{pair.label}</div>
-            {holesPlayed > 0 && (
-              <div className="text-fairway-500 text-xs">
-                {pair.points % 1 === 0 ? pair.points : pair.points.toFixed(1)} pts thru {holesPlayed}
+      {standings.map((pair, rank) => {
+        const matchup = round.matchups.find(m => m.id === pair.matchupId);
+        const pairScores = (allScores || {})[pair.matchupId] || {};
+        const pairData = matchup ? calculateCashGamePairScorecard(pairScores, matchup) : null;
+        const { holesScored = 0, runningTotal = 0, holeResults = [] } = pairData || {};
+        const scoredHoles = holeResults.filter(r => r.scoreToPar !== null);
+
+        return (
+          <Link
+            key={pair.matchupId}
+            to={`/matchup/${pair.matchupId}`}
+            className="block px-4 py-3 hover:bg-fairway-700/30 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+                ${rank === 0 && pair.points > 0 ? 'bg-gold-500 text-fairway-900' : 'bg-fairway-700 text-fairway-400'}`}>
+                {rank + 1}
               </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {pair.points > 0 && (
-              <span className={`font-bold text-sm ${rank === 0 ? 'text-gold-400' : 'text-fairway-400'}`}>
-                {pair.points % 1 === 0 ? pair.points : pair.points.toFixed(1)}
-              </span>
-            )}
-            <span className="text-fairway-500 text-sm">›</span>
-          </div>
-        </Link>
-      ))}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-white text-sm font-medium">{pair.label}</span>
+                  {holesScored > 0 && (
+                    <span className={`font-bold text-base font-display flex-shrink-0 ${toParColor(runningTotal)}`}>
+                      {formatToPar(runningTotal)}
+                    </span>
+                  )}
+                </div>
+                <div className="text-fairway-500 text-xs mt-0.5">
+                  {holesScored > 0
+                    ? `${pair.points % 1 === 0 ? pair.points : pair.points.toFixed(1)} pts · thru ${holesScored}`
+                    : 'Not started'}
+                </div>
+                {/* Per-hole score-to-par strip */}
+                {scoredHoles.length > 0 && (
+                  <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 mt-1.5">
+                    {scoredHoles.map(r => (
+                      <span key={r.hole} className="text-xs tabular-nums">
+                        <span className="text-fairway-600">{r.hole}:</span>
+                        <span className={`font-semibold ml-0.5 ${toParColor(r.scoreToPar)}`}>
+                          {formatToPar(r.scoreToPar)}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <span className="text-fairway-500 text-sm flex-shrink-0">›</span>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }
