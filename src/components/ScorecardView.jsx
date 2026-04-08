@@ -8,15 +8,14 @@ import {
   teamHandicap,
   calculateMatchStatus,
   matchStatusLabel,
+  matchPoints,
   COURSE_HANDICAPS,
 } from '../lib/scoring';
 
-// ─── Hole Indicator Strip ────────────────────────────────────────────────────
-function HoleStrip({ currentHole, onSelectHole, holeResults }) {
-  const stripRef = useRef(null);
-
+// ─── Hole Indicator Strip ─────────────────────────────────────────────────────
+function HoleStrip({ currentHole, onSelectHole, holes, holeResultMap }) {
   const getHoleColor = (hole) => {
-    const r = holeResults[hole - 1];
+    const r = holeResultMap[hole];
     if (!r || r.holeWinner === null) return 'bg-fairway-700 text-fairway-400';
     if (r.holeWinner === 0) return 'bg-fairway-600 text-fairway-200';
     if (r.holeWinner === 1) return 'bg-fairway-500 text-white';
@@ -24,8 +23,8 @@ function HoleStrip({ currentHole, onSelectHole, holeResults }) {
   };
 
   return (
-    <div ref={stripRef} className="flex gap-1.5 overflow-x-auto py-2 px-1 scrollbar-hide">
-      {Array.from({ length: 18 }, (_, i) => i + 1).map(hole => (
+    <div className="flex gap-1.5 overflow-x-auto py-2 px-1 scrollbar-hide">
+      {holes.map(hole => (
         <button
           key={hole}
           onClick={() => onSelectHole(hole)}
@@ -42,8 +41,8 @@ function HoleStrip({ currentHole, onSelectHole, holeResults }) {
   );
 }
 
-// ─── Score Input for a single player/hole ────────────────────────────────────
-function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, format, playerLabel }) {
+// ─── Score Input ──────────────────────────────────────────────────────────────
+function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, playerLabel }) {
   const [editing, setEditing] = useState(false);
   const [localVal, setLocalVal] = useState('');
   const [saving, setSaving] = useState(false);
@@ -59,10 +58,7 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
 
   const handleSave = async () => {
     const val = parseInt(localVal, 10);
-    if (isNaN(val) || val < 1 || val > 20) {
-      setEditing(false);
-      return;
-    }
+    if (isNaN(val) || val < 1 || val > 20) { setEditing(false); return; }
     setSaving(true);
     await onSave(val);
     setSaving(false);
@@ -72,11 +68,11 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
   const scoreColor = (gross) => {
     if (!gross) return 'text-fairway-500';
     const diff = gross - par;
-    if (diff <= -2) return 'text-yellow-300'; // eagle or better
-    if (diff === -1) return 'text-fairway-300'; // birdie
-    if (diff === 0) return 'text-white'; // par
-    if (diff === 1) return 'text-orange-400'; // bogey
-    return 'text-red-400'; // double+
+    if (diff <= -2) return 'text-yellow-300';
+    if (diff === -1) return 'text-fairway-300';
+    if (diff === 0) return 'text-white';
+    if (diff === 1) return 'text-orange-400';
+    return 'text-red-400';
   };
 
   return (
@@ -91,14 +87,11 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
       </div>
 
       <div className="flex items-center gap-3 flex-shrink-0">
-        {/* Net score chip */}
         {netSc !== null && (
           <span className="text-fairway-500 text-xs">
             Net <span className="text-fairway-300 font-medium">{netSc}</span>
           </span>
         )}
-
-        {/* Gross score tap target */}
         {editing ? (
           <div className="flex items-center gap-1">
             <input
@@ -114,20 +107,12 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
                 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-gold-400"
               autoFocus
             />
-            <button
-              onClick={handleSave}
-              disabled={saving}
+            <button onClick={handleSave} disabled={saving}
               className="bg-gold-600 hover:bg-gold-500 text-fairway-900 font-bold text-sm
-                px-2 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
+                px-2 py-1.5 rounded-lg transition-colors disabled:opacity-50">
               {saving ? '…' : '✓'}
             </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="text-fairway-500 text-sm px-1"
-            >
-              ✕
-            </button>
+            <button onClick={() => setEditing(false)} className="text-fairway-500 text-sm px-1">✕</button>
           </div>
         ) : (
           <button
@@ -151,40 +136,78 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
   );
 }
 
-// ─── Main Scorecard View ─────────────────────────────────────────────────────
+// ─── Main Scorecard View ──────────────────────────────────────────────────────
 export default function ScorecardView({ matchup, round, scores, upsertScore, myTeam }) {
-  const [currentHole, setCurrentHole] = useState(1);
+  const { start = 1, end = 18 } = matchup.holeRange || {};
+  const holes = Array.from({ length: end - start + 1 }, (_, i) => start + i);
+
+  const [currentHole, setCurrentHole] = useState(start);
 
   const matchStatus = calculateMatchStatus(scores, matchup, round);
-  const { holeResults, holesPlayed, holesRemaining } = matchStatus;
+  const { holeResults, holesPlayed, holesRemaining, totalHoles, matchResult } = matchStatus;
+  const pts = matchPoints(matchResult, holeResults);
+
+  // Map hole number → result for O(1) lookup (supports non-1-indexed back 9)
+  const holeResultMap = Object.fromEntries(holeResults.map(r => [r.hole, r]));
+  const currentResult = holeResultMap[currentHole];
 
   const par = COURSE.pars[currentHole - 1];
   const si = COURSE.strokeIndex[currentHole - 1];
 
+  const isCashGame = round.format === 'cash_game';
   const isTeamFormat = round.format === 'scramble' || round.format === 'modified_alternate_shot';
 
   const canEnterTeam1 = myTeam === 1;
   const canEnterTeam2 = myTeam === 2;
 
-  // Get current hole result for display
-  const currentResult = holeResults[currentHole - 1];
-
-  const team1Name = matchup.team1Players.map(id => PLAYERS[id].name).join(' & ');
-  const team2Name = matchup.team2Players.map(id => PLAYERS[id].name).join(' & ');
+  const t1Label = isCashGame
+    ? matchup.team1Players.map(id => PLAYERS[id].name).join(' & ')
+    : 'Team 1';
+  const t2Label = isCashGame
+    ? matchup.team2Players.map(id => PLAYERS[id].name).join(' & ')
+    : 'Team 2';
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Match status bar */}
+      {/* Match status / points bar */}
       <div className="bg-fairway-800 rounded-xl p-3 border border-fairway-700">
-        <div className="text-center">
-          <div className="text-xs text-fairway-400 mb-1">{round.name} · {round.subtitle}</div>
-          <div className="text-white font-semibold text-sm">
-            {matchStatusLabel(matchStatus, [team1Name, team2Name])}
+        {isCashGame ? (
+          <div className="text-center">
+            <div className="text-xs text-fairway-400 mb-1">{round.name} · Pair Scorecard</div>
+            <div className="text-white font-semibold text-sm">
+              {matchup.label}
+            </div>
+            <div className="text-fairway-500 text-xs mt-1">
+              Cash game — pair best ball vs field
+            </div>
           </div>
-          {holesPlayed > 0 && holesPlayed < 18 && (
-            <div className="text-fairway-500 text-xs mt-1">{holesRemaining} holes remaining</div>
-          )}
-        </div>
+        ) : (
+          <div>
+            <div className="text-center text-xs text-fairway-400 mb-2">
+              {round.name} · {matchup.nineLabel ?? round.subtitle}
+            </div>
+            <div className="text-center text-white font-semibold text-sm mb-2">
+              {matchStatusLabel(matchStatus, [t1Label, t2Label])}
+            </div>
+            {/* Hole points live tally */}
+            {holesPlayed > 0 && (
+              <div className="flex items-center justify-between text-xs mt-1 pt-2 border-t border-fairway-700/50">
+                <span className={`font-semibold ${pts.team1 > pts.team2 ? 'text-fairway-200' : 'text-fairway-400'}`}>
+                  T1 {pts.team1 % 1 === 0 ? pts.team1 : pts.team1.toFixed(1)} pts
+                  {pts.team1Bonus > 0 && <span className="text-gold-500 ml-1">(+{pts.team1Bonus} bonus)</span>}
+                </span>
+                <span className="text-fairway-700">·</span>
+                <span className={`font-semibold ${pts.team2 > pts.team1 ? 'text-gold-300' : 'text-fairway-400'}`}>
+                  {pts.team2 % 1 === 0 ? pts.team2 : pts.team2.toFixed(1)} pts T2
+                  {pts.team2Bonus > 0 && <span className="text-gold-500 ml-1">(+{pts.team2Bonus} bonus)</span>}
+                </span>
+              </div>
+            )}
+            {holesPlayed > 0 && holesPlayed < totalHoles && (
+              <div className="text-center text-fairway-600 text-xs mt-1">{holesRemaining} holes remaining</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Hole selector */}
@@ -193,11 +216,12 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
           <HoleStrip
             currentHole={currentHole}
             onSelectHole={setCurrentHole}
-            holeResults={holeResults}
+            holes={holes}
+            holeResultMap={holeResultMap}
           />
         </div>
 
-        {/* Hole info */}
+        {/* Hole info row */}
         <div className="flex items-center justify-between px-4 py-2 border-t border-fairway-700/50 bg-fairway-900/30">
           <div className="flex items-center gap-3">
             <div className="text-center">
@@ -215,7 +239,6 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
             </div>
           </div>
 
-          {/* Hole result */}
           {currentResult?.holeWinner !== null && currentResult?.holeWinner !== undefined && (
             <div className={`px-3 py-1 rounded-full text-xs font-bold
               ${currentResult.holeWinner === 0 ? 'bg-fairway-700 text-fairway-300'
@@ -223,8 +246,8 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
                 : 'bg-rough-700 text-gold-300'}
             `}>
               {currentResult.holeWinner === 0 ? 'Halved'
-                : currentResult.holeWinner === 1 ? `${team1Name.split(' ')[0]} wins`
-                : `${team2Name.split(' ')[0]} wins`}
+                : currentResult.holeWinner === 1 ? `${t1Label.split(' ')[0]} wins`
+                : `${t2Label.split(' ')[0]} wins`}
             </div>
           )}
         </div>
@@ -232,9 +255,9 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
 
       {/* Score entry panels */}
       <div className="grid grid-cols-1 gap-3">
-        {/* Team 1 */}
         <TeamScorePanel
-          title="Team 1"
+          title={t1Label}
+          isLeft={true}
           players={matchup.team1Players}
           isTeamFormat={isTeamFormat}
           round={round}
@@ -243,10 +266,9 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
           canEdit={canEnterTeam1}
           onSave={upsertScore}
         />
-
-        {/* Team 2 */}
         <TeamScorePanel
-          title="Team 2"
+          title={t2Label}
+          isLeft={false}
           players={matchup.team2Players}
           isTeamFormat={isTeamFormat}
           round={round}
@@ -257,38 +279,40 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
         />
       </div>
 
-      {/* Navigation buttons */}
+      {/* Navigation */}
       <div className="flex gap-3">
         <button
-          onClick={() => setCurrentHole(h => Math.max(1, h - 1))}
-          disabled={currentHole === 1}
+          onClick={() => setCurrentHole(h => Math.max(start, h - 1))}
+          disabled={currentHole === start}
           className="flex-1 bg-fairway-800 hover:bg-fairway-700 border border-fairway-700
             text-fairway-300 font-semibold py-3 rounded-xl disabled:opacity-30 transition-colors"
         >
-          ← Hole {currentHole - 1 || '–'}
+          ← {currentHole > start ? `Hole ${currentHole - 1}` : '–'}
         </button>
         <button
-          onClick={() => setCurrentHole(h => Math.min(18, h + 1))}
-          disabled={currentHole === 18}
+          onClick={() => setCurrentHole(h => Math.min(end, h + 1))}
+          disabled={currentHole === end}
           className="flex-1 bg-fairway-700 hover:bg-fairway-600 border border-fairway-600
             text-white font-semibold py-3 rounded-xl disabled:opacity-30 transition-colors"
         >
-          Hole {currentHole + 1 > 18 ? '–' : currentHole + 1} →
+          {currentHole < end ? `Hole ${currentHole + 1}` : '–'} →
         </button>
       </div>
 
-      {/* Scorecard summary table */}
-      <ScorecardTable holeResults={holeResults} matchup={matchup} round={round} />
+      {/* Full scorecard table */}
+      <ScorecardTable
+        holeResults={holeResults}
+        t1Label={t1Label}
+        t2Label={t2Label}
+        isCashGame={isCashGame}
+      />
     </div>
   );
 }
 
-// ─── Team Score Panel ────────────────────────────────────────────────────────
-function TeamScorePanel({ title, players, isTeamFormat, round, holeNumber, scores, canEdit, onSave }) {
-  const isTeam1 = title === 'Team 1';
-
+// ─── Team Score Panel ─────────────────────────────────────────────────────────
+function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumber, scores, canEdit, onSave }) {
   if (isTeamFormat) {
-    // Single entry per team
     const keyPlayer = teamScoreKey(players);
     const gross = scores[`${keyPlayer}-${holeNumber}`] || null;
     const thcp = teamHandicap(players, round.format);
@@ -296,30 +320,24 @@ function TeamScorePanel({ title, players, isTeamFormat, round, holeNumber, score
     const strokes = strokesOnHole(thcp, si);
     const net = gross ? gross - strokes : null;
     const playerLabel = players.map(id => PLAYERS[id].name).join(' & ');
-    const hcpLabel = round.format === 'scramble'
-      ? `Scramble HCP ${thcp}`
-      : `Alt Shot HCP ${thcp}`;
+    const hcpLabel = round.format === 'scramble' ? `Scramble HCP ${thcp}` : `Alt Shot HCP ${thcp}`;
 
     return (
-      <div className={`rounded-xl border overflow-hidden
-        ${isTeam1 ? 'border-fairway-600' : 'border-rough-700'}
-        ${!canEdit ? 'opacity-80' : ''}
-      `}>
+      <div className={`rounded-xl border overflow-hidden ${!canEdit ? 'opacity-80' : ''}
+        ${isLeft ? 'border-fairway-600' : 'border-rough-700'}`}>
         <div className={`px-3 py-2 flex items-center justify-between
-          ${isTeam1 ? 'bg-fairway-700/60' : 'bg-rough-800/60'}
-        `}>
+          ${isLeft ? 'bg-fairway-700/60' : 'bg-rough-800/60'}`}>
           <span className="text-gold-400 text-xs font-semibold">{title}</span>
           <span className="text-fairway-500 text-xs">{hcpLabel} · {strokes > 0 ? `−${strokes}` : 'no stroke'}</span>
         </div>
-        <div className={`px-3 py-2 ${isTeam1 ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
+        <div className={`px-3 py-2 ${isLeft ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
           <ScoreInput
             playerId={keyPlayer}
             holeNumber={holeNumber}
             grossScore={gross}
             netSc={net}
             canEdit={canEdit}
-            onSave={(val) => onSave(keyPlayer, holeNumber, val)}
-            format={round.format}
+            onSave={val => onSave(keyPlayer, holeNumber, val)}
             playerLabel={playerLabel}
           />
         </div>
@@ -327,19 +345,16 @@ function TeamScorePanel({ title, players, isTeamFormat, round, holeNumber, score
     );
   }
 
-  // Individual scores per player (best ball / singles)
+  // Individual scores (best_ball, singles, cash_game)
   return (
-    <div className={`rounded-xl border overflow-hidden
-      ${isTeam1 ? 'border-fairway-600' : 'border-rough-700'}
-      ${!canEdit ? 'opacity-80' : ''}
-    `}>
+    <div className={`rounded-xl border overflow-hidden ${!canEdit ? 'opacity-80' : ''}
+      ${isLeft ? 'border-fairway-600' : 'border-rough-700'}`}>
       <div className={`px-3 py-2 flex items-center justify-between
-        ${isTeam1 ? 'bg-fairway-700/60' : 'bg-rough-800/60'}
-      `}>
+        ${isLeft ? 'bg-fairway-700/60' : 'bg-rough-800/60'}`}>
         <span className="text-gold-400 text-xs font-semibold">{title}</span>
         {!canEdit && <span className="text-fairway-600 text-xs">View only</span>}
       </div>
-      <div className={`px-3 py-1 ${isTeam1 ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
+      <div className={`px-3 py-1 ${isLeft ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
         {players.map(pid => {
           const gross = scores[`${pid}-${holeNumber}`] || null;
           const net = netScore(gross, pid, holeNumber);
@@ -355,8 +370,7 @@ function TeamScorePanel({ title, players, isTeamFormat, round, holeNumber, score
               grossScore={gross}
               netSc={net}
               canEdit={canEdit}
-              onSave={(val) => onSave(pid, holeNumber, val)}
-              format={round.format}
+              onSave={val => onSave(pid, holeNumber, val)}
               playerLabel={label}
             />
           );
@@ -366,9 +380,10 @@ function TeamScorePanel({ title, players, isTeamFormat, round, holeNumber, score
   );
 }
 
-// ─── Summary Table ───────────────────────────────────────────────────────────
-function ScorecardTable({ holeResults, matchup, round }) {
+// ─── Scorecard Summary Table ──────────────────────────────────────────────────
+function ScorecardTable({ holeResults, t1Label, t2Label, isCashGame }) {
   const [show, setShow] = useState(false);
+  const isFullRound = holeResults.length === 18;
 
   return (
     <div>
@@ -376,7 +391,7 @@ function ScorecardTable({ holeResults, matchup, round }) {
         onClick={() => setShow(s => !s)}
         className="w-full text-fairway-400 text-sm py-2 flex items-center justify-center gap-2"
       >
-        <span>{show ? '▲ Hide' : '▼ Show'} full scorecard</span>
+        {show ? '▲ Hide' : '▼ Show'} full scorecard
       </button>
 
       {show && (
@@ -387,65 +402,69 @@ function ScorecardTable({ holeResults, matchup, round }) {
                 <th className="text-fairway-400 font-medium px-2 py-2 text-left sticky left-0 bg-fairway-900/90 w-8">H</th>
                 <th className="text-fairway-400 font-medium px-2 py-2">Par</th>
                 <th className="text-fairway-400 font-medium px-2 py-2">SI</th>
-                <th className="text-fairway-300 font-medium px-2 py-2">T1 Net</th>
-                <th className="text-fairway-300 font-medium px-2 py-2">T2 Net</th>
-                <th className="text-fairway-400 font-medium px-2 py-2">Result</th>
-                <th className="text-fairway-400 font-medium px-2 py-2">+/-</th>
+                <th className="text-fairway-300 font-medium px-2 py-2 truncate max-w-[60px]">
+                  {t1Label.split(' ')[0]}
+                </th>
+                <th className="text-fairway-300 font-medium px-2 py-2 truncate max-w-[60px]">
+                  {t2Label.split(' ')[0]}
+                </th>
+                {!isCashGame && <th className="text-fairway-400 font-medium px-2 py-2">Pts</th>}
+                {!isCashGame && <th className="text-fairway-400 font-medium px-2 py-2">+/-</th>}
               </tr>
             </thead>
             <tbody>
-              {holeResults.map((r, i) => {
-                const isFront = i < 9;
-                return (
-                  <tr key={r.hole}
-                    className={`border-b border-fairway-800
-                      ${i === 8 ? 'border-b-2 border-fairway-600' : ''}
-                      ${r.holeWinner === 1 ? 'bg-fairway-800/60' : r.holeWinner === 2 ? 'bg-rough-900/60' : ''}
-                    `}
-                  >
-                    <td className="px-2 py-1.5 font-semibold text-gold-400 sticky left-0 bg-inherit">{r.hole}</td>
-                    <td className="px-2 py-1.5 text-center text-fairway-400">{r.par}</td>
-                    <td className="px-2 py-1.5 text-center text-fairway-600">{r.strokeIndex}</td>
-                    <td className={`px-2 py-1.5 text-center font-medium
-                      ${r.holeWinner === 1 ? 'text-fairway-200' : 'text-fairway-400'}
-                    `}>
-                      {r.team1Net ?? '–'}
-                    </td>
-                    <td className={`px-2 py-1.5 text-center font-medium
-                      ${r.holeWinner === 2 ? 'text-gold-300' : 'text-fairway-400'}
-                    `}>
-                      {r.team2Net ?? '–'}
-                    </td>
+              {holeResults.map((r, i) => (
+                <tr
+                  key={r.hole}
+                  className={`border-b border-fairway-800
+                    ${isFullRound && i === 8 ? 'border-b-2 border-fairway-600' : ''}
+                    ${r.holeWinner === 1 ? 'bg-fairway-800/60' : r.holeWinner === 2 ? 'bg-rough-900/60' : ''}
+                  `}
+                >
+                  <td className="px-2 py-1.5 font-semibold text-gold-400 sticky left-0 bg-inherit">{r.hole}</td>
+                  <td className="px-2 py-1.5 text-center text-fairway-400">{r.par}</td>
+                  <td className="px-2 py-1.5 text-center text-fairway-600">{r.strokeIndex}</td>
+                  <td className={`px-2 py-1.5 text-center font-medium
+                    ${r.holeWinner === 1 ? 'text-fairway-200' : 'text-fairway-400'}`}>
+                    {r.team1Net ?? '–'}
+                  </td>
+                  <td className={`px-2 py-1.5 text-center font-medium
+                    ${r.holeWinner === 2 ? 'text-gold-300' : 'text-fairway-400'}`}>
+                    {r.team2Net ?? '–'}
+                  </td>
+                  {!isCashGame && (
                     <td className="px-2 py-1.5 text-center">
                       {r.holeWinner === null ? '–'
                         : r.holeWinner === 0 ? <span className="text-fairway-400">½</span>
                         : r.holeWinner === 1 ? <span className="text-fairway-200">T1</span>
-                        : <span className="text-gold-400">T2</span>
-                      }
+                        : <span className="text-gold-400">T2</span>}
                     </td>
+                  )}
+                  {!isCashGame && (
                     <td className="px-2 py-1.5 text-center">
                       {r.holeWinner !== null ? (
-                        <span className={r.runningHolesUp > 0 ? 'text-fairway-300'
-                          : r.runningHolesUp < 0 ? 'text-gold-400' : 'text-fairway-500'}>
+                        <span className={
+                          r.runningHolesUp > 0 ? 'text-fairway-300'
+                          : r.runningHolesUp < 0 ? 'text-gold-400'
+                          : 'text-fairway-500'}>
                           {r.runningHolesUp === 0 ? 'AS'
                             : r.runningHolesUp > 0 ? `T1 +${r.runningHolesUp}`
                             : `T2 +${Math.abs(r.runningHolesUp)}`}
                         </span>
                       ) : '–'}
                     </td>
-                  </tr>
-                );
-              })}
-              {/* Totals row */}
+                  )}
+                </tr>
+              ))}
               <tr className="bg-fairway-800/80 font-semibold">
                 <td className="px-2 py-2 text-fairway-300 sticky left-0 bg-fairway-800" colSpan={3}>Total</td>
                 <td className="px-2 py-2 text-center text-fairway-200">
-                  {holeResults.filter(r => r.team1Net !== null).reduce((s, r) => s + (r.team1Net || 0), 0) || '–'}
+                  {holeResults.filter(r => r.team1Net !== null).reduce((s, r) => s + r.team1Net, 0) || '–'}
                 </td>
                 <td className="px-2 py-2 text-center text-fairway-200">
-                  {holeResults.filter(r => r.team2Net !== null).reduce((s, r) => s + (r.team2Net || 0), 0) || '–'}
+                  {holeResults.filter(r => r.team2Net !== null).reduce((s, r) => s + r.team2Net, 0) || '–'}
                 </td>
-                <td colSpan={2} />
+                {!isCashGame && <td colSpan={2} />}
               </tr>
             </tbody>
           </table>

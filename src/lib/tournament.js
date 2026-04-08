@@ -1,13 +1,10 @@
 // ─── Course ──────────────────────────────────────────────────────────────────
-// Update par and strokeIndex to match your actual course before the tournament.
 export const COURSE = {
   name: 'SECIT VII',
   rating: 71.5,
   slope: 128,
   par: 72,
-  // Par per hole (index 0 = hole 1)
   pars: [4, 4, 3, 4, 5, 3, 4, 4, 4, 4, 5, 3, 4, 4, 3, 4, 4, 5],
-  // Stroke index per hole — 1 = hardest, 18 = easiest
   strokeIndex: [7, 13, 3, 11, 1, 15, 5, 9, 17, 2, 8, 14, 4, 10, 18, 6, 12, 16],
 };
 
@@ -26,24 +23,48 @@ export const PLAYERS = {
 export const TEAM1_PLAYERS = ['derek', 'brandon', 'tyson', 'todd'];
 export const TEAM2_PLAYERS = ['gary', 'slim', 'mike', 'ketan'];
 
-// ─── Rounds & Matchups ───────────────────────────────────────────────────────
-// Pairings below follow a Ryder Cup style rotation — adjust if needed.
+// ─── Rounds ───────────────────────────────────────────────────────────────────
+// matchup.holeRange = { start, end } — only present for 9-hole singles matches.
+// cash_game format: 4 cross-team pairs. Score entry per pair (T1 player + T2 player).
+//   Standings ranked hole-by-hole vs all other pairs (not head-to-head T1 vs T2).
 export const ROUNDS = [
   {
     id: 'warmup',
     number: 0,
     name: 'Warm-Up',
-    subtitle: 'Best Ball',
-    format: 'best_ball',
+    subtitle: 'Cash Game Best Ball',
+    format: 'cash_game',
     countsForCup: false,
-    description: 'All 8 players, best ball — practice round, no Cup points',
+    description:
+      '4 cross-team pairs each play best ball. On each hole, 1 pt awarded per pair beaten (max 3 pts/hole). 18-hole total ranks the pairs.',
     matchups: [
       {
         id: 'warmup-1',
-        label: 'Team 1 vs Team 2',
-        shortLabel: 'All vs All',
-        team1Players: ['derek', 'brandon', 'tyson', 'todd'],
-        team2Players: ['gary', 'slim', 'mike', 'ketan'],
+        label: 'Derek & Gary',
+        shortLabel: 'Derek + Gary',
+        team1Players: ['derek'],
+        team2Players: ['gary'],
+      },
+      {
+        id: 'warmup-2',
+        label: 'Brandon & Slim',
+        shortLabel: 'Brandon + Slim',
+        team1Players: ['brandon'],
+        team2Players: ['slim'],
+      },
+      {
+        id: 'warmup-3',
+        label: 'Tyson & Mike',
+        shortLabel: 'Tyson + Mike',
+        team1Players: ['tyson'],
+        team2Players: ['mike'],
+      },
+      {
+        id: 'warmup-4',
+        label: 'Todd & Ketan',
+        shortLabel: 'Todd + Ketan',
+        team1Players: ['todd'],
+        team2Players: ['ketan'],
       },
     ],
   },
@@ -54,7 +75,8 @@ export const ROUNDS = [
     subtitle: 'Modified Alternate Shot',
     format: 'modified_alternate_shot',
     countsForCup: true,
-    description: 'Partners alternate shots. Team handicap = 50% of combined course handicaps.',
+    description:
+      'Partners alternate shots. Team handicap = 50% of combined course handicaps. 1 pt per hole won + 1 match bonus.',
     matchups: [
       {
         id: 'match1-1',
@@ -79,7 +101,8 @@ export const ROUNDS = [
     subtitle: 'Scramble',
     format: 'scramble',
     countsForCup: true,
-    description: 'All hit from tee, team picks best shot. Team handicap = 35% lower + 15% higher.',
+    description:
+      'All hit from tee, team picks best shot. Team handicap = 35% lower + 15% higher course handicap. 1 pt per hole won + 1 match bonus.',
     matchups: [
       {
         id: 'match2-1',
@@ -104,7 +127,8 @@ export const ROUNDS = [
     subtitle: 'Best Ball',
     format: 'best_ball',
     countsForCup: true,
-    description: 'Each player plays own ball. Best net score per team counts.',
+    description:
+      'Each player plays own ball. Best net score per team counts per hole. 1 pt per hole won + 1 match bonus.',
     matchups: [
       {
         id: 'match3-1',
@@ -126,38 +150,85 @@ export const ROUNDS = [
     id: 'singles',
     number: 4,
     name: 'Final Singles',
-    subtitle: 'Individual Match Play',
+    subtitle: 'Two 9-Hole Matches Per Player',
     format: 'singles',
     countsForCup: true,
-    description: 'Individual net match play. Full course handicap applied.',
+    description:
+      'Each player plays two separate 9-hole matches (Front 9 & Back 9) against different opponents. Each 9-hole match awards 1 pt per hole won + 1 match bonus.',
     matchups: [
+      // ── Front 9 (holes 1–9) ──
       {
-        id: 'singles-1',
-        label: 'Derek vs Gary',
-        shortLabel: 'D vs G',
+        id: 'singles-f1',
+        label: 'Derek vs Mike — Front 9',
+        shortLabel: 'Derek vs Mike',
         team1Players: ['derek'],
-        team2Players: ['gary'],
-      },
-      {
-        id: 'singles-2',
-        label: 'Brandon vs Slim',
-        shortLabel: 'B vs S',
-        team1Players: ['brandon'],
-        team2Players: ['slim'],
-      },
-      {
-        id: 'singles-3',
-        label: 'Tyson vs Mike',
-        shortLabel: 'T vs M',
-        team1Players: ['tyson'],
         team2Players: ['mike'],
+        holeRange: { start: 1, end: 9 },
+        nineLabel: 'Front 9',
       },
       {
-        id: 'singles-4',
-        label: 'Todd vs Ketan',
-        shortLabel: 'To vs K',
+        id: 'singles-f2',
+        label: 'Brandon vs Gary — Front 9',
+        shortLabel: 'Brandon vs Gary',
+        team1Players: ['brandon'],
+        team2Players: ['gary'],
+        holeRange: { start: 1, end: 9 },
+        nineLabel: 'Front 9',
+      },
+      {
+        id: 'singles-f3',
+        label: 'Tyson vs Slim — Front 9',
+        shortLabel: 'Tyson vs Slim',
+        team1Players: ['tyson'],
+        team2Players: ['slim'],
+        holeRange: { start: 1, end: 9 },
+        nineLabel: 'Front 9',
+      },
+      {
+        id: 'singles-f4',
+        label: 'Todd vs Ketan — Front 9',
+        shortLabel: 'Todd vs Ketan',
         team1Players: ['todd'],
         team2Players: ['ketan'],
+        holeRange: { start: 1, end: 9 },
+        nineLabel: 'Front 9',
+      },
+      // ── Back 9 (holes 10–18) ──
+      {
+        id: 'singles-b1',
+        label: 'Derek vs Ketan — Back 9',
+        shortLabel: 'Derek vs Ketan',
+        team1Players: ['derek'],
+        team2Players: ['ketan'],
+        holeRange: { start: 10, end: 18 },
+        nineLabel: 'Back 9',
+      },
+      {
+        id: 'singles-b2',
+        label: 'Brandon vs Mike — Back 9',
+        shortLabel: 'Brandon vs Mike',
+        team1Players: ['brandon'],
+        team2Players: ['mike'],
+        holeRange: { start: 10, end: 18 },
+        nineLabel: 'Back 9',
+      },
+      {
+        id: 'singles-b3',
+        label: 'Tyson vs Gary — Back 9',
+        shortLabel: 'Tyson vs Gary',
+        team1Players: ['tyson'],
+        team2Players: ['gary'],
+        holeRange: { start: 10, end: 18 },
+        nineLabel: 'Back 9',
+      },
+      {
+        id: 'singles-b4',
+        label: 'Todd vs Slim — Back 9',
+        shortLabel: 'Todd vs Slim',
+        team1Players: ['todd'],
+        team2Players: ['slim'],
+        holeRange: { start: 10, end: 18 },
+        nineLabel: 'Back 9',
       },
     ],
   },
@@ -175,11 +246,7 @@ export function getMatchup(matchupId) {
   return null;
 }
 
-// Which player id is used as the "key" when entering a single-score-per-team format
+// Key player used when storing a single-team score (scramble / alt shot)
 export function teamScoreKey(players) {
   return players[0];
 }
-
-// Total Cup points available
-export const CUP_POINTS_AVAILABLE = ROUNDS.filter(r => r.countsForCup)
-  .reduce((sum, r) => sum + r.matchups.length, 0);

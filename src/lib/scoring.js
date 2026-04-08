@@ -1,4 +1,4 @@
-import { COURSE, PLAYERS, ROUNDS, teamScoreKey } from './tournament';
+import { COURSE, PLAYERS, teamScoreKey } from './tournament';
 
 // ─── Handicap Calculations ───────────────────────────────────────────────────
 
@@ -8,22 +8,17 @@ export function courseHandicap(playerId) {
   return Math.round(player.handicapIndex * (COURSE.slope / 113) + (COURSE.rating - COURSE.par));
 }
 
-// Strokes a player receives on a specific hole
 export function strokesOnHole(playerCourseHcp, holeStrokeIndex) {
   let strokes = 0;
   let remaining = playerCourseHcp;
-  // First sweep: stroke index 1–18
   if (remaining >= holeStrokeIndex) strokes++;
   remaining -= 18;
-  // Second sweep (handicap 19–36)
   if (remaining >= holeStrokeIndex) strokes++;
   remaining -= 18;
-  // Third sweep (handicap 37–54, rare but possible)
   if (remaining >= holeStrokeIndex) strokes++;
   return strokes;
 }
 
-// Net score for a player on a hole
 export function netScore(grossScore, playerId, holeNumber) {
   if (!grossScore || grossScore <= 0) return null;
   const si = COURSE.strokeIndex[holeNumber - 1];
@@ -31,14 +26,12 @@ export function netScore(grossScore, playerId, holeNumber) {
   return grossScore - strokesOnHole(hcp, si);
 }
 
-// Team handicap for scramble (2-player: 35% lower + 15% higher)
 export function scrambleHandicap(playerIds) {
   const hcps = playerIds.map(courseHandicap).sort((a, b) => a - b);
   if (hcps.length === 1) return Math.round(hcps[0] * 0.35);
   return Math.round(hcps[0] * 0.35 + hcps[1] * 0.15);
 }
 
-// Team handicap for modified alternate shot (50% of combined)
 export function altShotHandicap(playerIds) {
   const total = playerIds.reduce((s, id) => s + courseHandicap(id), 0);
   return Math.round(total * 0.5);
@@ -47,10 +40,9 @@ export function altShotHandicap(playerIds) {
 export function teamHandicap(playerIds, format) {
   if (format === 'scramble') return scrambleHandicap(playerIds);
   if (format === 'modified_alternate_shot') return altShotHandicap(playerIds);
-  return courseHandicap(playerIds[0]); // singles / per-player
+  return courseHandicap(playerIds[0]);
 }
 
-// Net score for a team entry (single score covers the whole team)
 export function teamNetScore(grossScore, playerIds, format, holeNumber) {
   if (!grossScore || grossScore <= 0) return null;
   const si = COURSE.strokeIndex[holeNumber - 1];
@@ -60,45 +52,38 @@ export function teamNetScore(grossScore, playerIds, format, holeNumber) {
 
 // ─── Match Scoring ───────────────────────────────────────────────────────────
 
-// Returns per-hole analysis and overall match status for a matchup.
-// holeScores: Map<`${playerId}-${holeNumber}`, grossStrokes>
+// holeScores: { "playerId-holeNum": grossStrokes }
+// matchup.holeRange = { start, end } — optional, defaults to 1–18
+// Returns holeResults, holesUp, holesPlayed, holesRemaining, totalHoles, matchResult
 export function calculateMatchStatus(holeScores, matchup, round) {
-  const results = [];
-  let holesUp = 0; // positive = team1 leading
+  const { start = 1, end = 18 } = matchup.holeRange || {};
+  const totalHoles = end - start + 1;
 
-  for (let hole = 1; hole <= 18; hole++) {
+  const results = [];
+  let holesUp = 0;
+
+  for (let hole = start; hole <= end; hole++) {
     let team1Net = null;
     let team2Net = null;
 
-    if (round.format === 'singles' || round.format === 'best_ball') {
-      // Each player has their own score
-      const team1Nets = matchup.team1Players
-        .map(pid => {
-          const gross = holeScores[`${pid}-${hole}`];
-          return netScore(gross, pid, hole);
-        })
+    if (round.format === 'singles' || round.format === 'best_ball' || round.format === 'cash_game') {
+      const t1Nets = matchup.team1Players
+        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole))
         .filter(n => n !== null);
-
-      const team2Nets = matchup.team2Players
-        .map(pid => {
-          const gross = holeScores[`${pid}-${hole}`];
-          return netScore(gross, pid, hole);
-        })
+      const t2Nets = matchup.team2Players
+        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole))
         .filter(n => n !== null);
-
-      if (team1Nets.length > 0) team1Net = Math.min(...team1Nets);
-      if (team2Nets.length > 0) team2Net = Math.min(...team2Nets);
+      if (t1Nets.length > 0) team1Net = Math.min(...t1Nets);
+      if (t2Nets.length > 0) team2Net = Math.min(...t2Nets);
     } else {
-      // Scramble / Alt Shot — one gross score stored under teamScoreKey
+      // Scramble / Modified Alternate Shot — single score per side
       const key1 = teamScoreKey(matchup.team1Players);
       const key2 = teamScoreKey(matchup.team2Players);
-      const gross1 = holeScores[`${key1}-${hole}`];
-      const gross2 = holeScores[`${key2}-${hole}`];
-      team1Net = teamNetScore(gross1, matchup.team1Players, round.format, hole);
-      team2Net = teamNetScore(gross2, matchup.team2Players, round.format, hole);
+      team1Net = teamNetScore(holeScores[`${key1}-${hole}`], matchup.team1Players, round.format, hole);
+      team2Net = teamNetScore(holeScores[`${key2}-${hole}`], matchup.team2Players, round.format, hole);
     }
 
-    let holeWinner = null; // null=not played, 0=halved, 1=team1, 2=team2
+    let holeWinner = null;
     if (team1Net !== null && team2Net !== null) {
       if (team1Net < team2Net) { holeWinner = 1; holesUp++; }
       else if (team2Net < team1Net) { holeWinner = 2; holesUp--; }
@@ -112,16 +97,15 @@ export function calculateMatchStatus(holeScores, matchup, round) {
       team1Net,
       team2Net,
       holeWinner,
-      runningHolesUp: holesUp, // snapshot after this hole
+      runningHolesUp: holesUp,
     });
   }
 
   const holesPlayed = results.filter(r => r.holeWinner !== null).length;
-  const holesRemaining = 18 - holesPlayed;
+  const holesRemaining = totalHoles - holesPlayed;
 
-  // Match over when margin > remaining (dormie), or 18 holes played
   let matchResult = null;
-  if (holesPlayed > 0 && (Math.abs(holesUp) > holesRemaining || holesPlayed === 18)) {
+  if (holesPlayed > 0 && (Math.abs(holesUp) > holesRemaining || holesPlayed === totalHoles)) {
     matchResult = {
       winner: holesUp > 0 ? 1 : holesUp < 0 ? 2 : 0,
       margin: Math.abs(holesUp),
@@ -129,21 +113,54 @@ export function calculateMatchStatus(holeScores, matchup, round) {
     };
   }
 
-  return { holeResults: results, holesUp, holesPlayed, holesRemaining, matchResult };
+  return { holeResults: results, holesUp, holesPlayed, holesRemaining, totalHoles, matchResult };
 }
 
-// Human-readable match status string, e.g. "Team 1 leads 3UP (15)", "AS", "Team 2 wins 4&3"
+// ─── Match Points (hole-by-hole + bonus) ─────────────────────────────────────
+
+// Returns point breakdown for a match.
+// Hole points are accumulated as holes are played (in-progress matches count).
+// Match bonus (+1) is only awarded when the match is complete.
+export function matchPoints(matchResult, holeResults) {
+  let team1Holes = 0;
+  let team2Holes = 0;
+
+  for (const r of (holeResults || [])) {
+    if (r.holeWinner === 1) team1Holes += 1;
+    else if (r.holeWinner === 2) team2Holes += 1;
+    else if (r.holeWinner === 0) { team1Holes += 0.5; team2Holes += 0.5; }
+  }
+
+  let team1Bonus = 0;
+  let team2Bonus = 0;
+  if (matchResult) {
+    if (matchResult.winner === 1) team1Bonus = 1;
+    else if (matchResult.winner === 2) team2Bonus = 1;
+    else { team1Bonus = 0.5; team2Bonus = 0.5; }
+  }
+
+  return {
+    team1: team1Holes + team1Bonus,
+    team2: team2Holes + team2Bonus,
+    team1Holes,
+    team2Holes,
+    team1Bonus,
+    team2Bonus,
+    complete: matchResult !== null,
+  };
+}
+
+// ─── Human-readable status ───────────────────────────────────────────────────
+
 export function matchStatusLabel(matchStatus, teamNames = ['Team 1', 'Team 2']) {
   const { holesUp, holesPlayed, holesRemaining, matchResult } = matchStatus;
 
   if (holesPlayed === 0) return 'Not started';
 
   if (matchResult) {
-    if (matchResult.winner === 0) return 'Tied — All Square';
+    if (matchResult.winner === 0) return 'All Square — Tied';
     const winner = matchResult.winner === 1 ? teamNames[0] : teamNames[1];
-    if (holesRemaining === 0) {
-      return `${winner} wins ${matchResult.margin} UP`;
-    }
+    if (holesRemaining === 0) return `${winner} wins ${matchResult.margin} UP`;
     return `${winner} wins ${matchResult.margin}&${holesRemaining}`;
   }
 
@@ -152,30 +169,84 @@ export function matchStatusLabel(matchStatus, teamNames = ['Team 1', 'Team 2']) 
   return `${leading} ${Math.abs(holesUp)} UP (thru ${holesPlayed})`;
 }
 
-// Points awarded for a completed match: 1 for win, 0.5 each for tie, 0 for loss
-export function matchPoints(matchResult) {
-  if (!matchResult) return null; // incomplete
-  if (matchResult.winner === 1) return { team1: 1, team2: 0 };
-  if (matchResult.winner === 2) return { team1: 0, team2: 1 };
-  return { team1: 0.5, team2: 0.5 };
-}
+// ─── SECIT Cup standings ──────────────────────────────────────────────────────
 
-// ─── Cup Standings ───────────────────────────────────────────────────────────
-
-// Computes overall Cup standings from all match statuses
+// allMatchStatuses: array of { matchResult, holeResults } from calculateMatchStatus
+// Only pass statuses for rounds where countsForCup === true
 export function cupStandings(allMatchStatuses) {
   let team1 = 0;
   let team2 = 0;
 
-  for (const { matchResult } of allMatchStatuses) {
-    if (matchResult) {
-      const pts = matchPoints(matchResult);
-      team1 += pts.team1;
-      team2 += pts.team2;
-    }
+  for (const { matchResult, holeResults } of allMatchStatuses) {
+    const pts = matchPoints(matchResult, holeResults);
+    team1 += pts.team1;
+    team2 += pts.team2;
   }
 
   return { team1, team2 };
+}
+
+// ─── Cash Game Standings ─────────────────────────────────────────────────────
+
+// allMatchupScores: { [matchupId]: { "playerId-holeNum": gross } }
+// round: the warmup round with format === 'cash_game'
+//
+// Scoring: each hole is a 4-way round robin.
+//   Each pair earns 1 pt per pair they beat (lower net = better).
+//   Ties split: 0.5 pts each. Max 3 pts per hole (beat all 3 others).
+//
+// Returns array sorted by total points (highest first):
+//   [{ matchupId, label, players, points, holesPlayed, holeDetails }]
+export function calculateCashGameStandings(allMatchupScores, round) {
+  const pairs = round.matchups.map(m => ({
+    matchupId: m.id,
+    label: m.label,
+    players: [...m.team1Players, ...m.team2Players],
+  }));
+
+  const pairPoints = Object.fromEntries(pairs.map(p => [p.matchupId, 0]));
+  const holeDetails = Object.fromEntries(pairs.map(p => [p.matchupId, []]));
+  let holesPlayed = 0;
+
+  for (let hole = 1; hole <= 18; hole++) {
+    // Best ball net for each pair on this hole
+    const pairNets = pairs.map(pair => {
+      const scores = allMatchupScores[pair.matchupId] || {};
+      const nets = pair.players
+        .map(pid => netScore(scores[`${pid}-${hole}`], pid, hole))
+        .filter(n => n !== null);
+      return { matchupId: pair.matchupId, net: nets.length > 0 ? Math.min(...nets) : null };
+    });
+
+    const anyScored = pairNets.some(p => p.net !== null);
+    if (anyScored) holesPlayed = hole;
+
+    // Round-robin: compare each pair against every other pair
+    for (const entry of pairNets) {
+      if (entry.net === null) {
+        holeDetails[entry.matchupId].push({ hole, net: null, pts: null });
+        continue;
+      }
+      let pts = 0;
+      for (const other of pairNets) {
+        if (other.matchupId === entry.matchupId || other.net === null) continue;
+        if (entry.net < other.net) pts += 1;
+        else if (entry.net === other.net) pts += 0.5;
+      }
+      pairPoints[entry.matchupId] += pts;
+      holeDetails[entry.matchupId].push({ hole, net: entry.net, pts });
+    }
+  }
+
+  return pairs
+    .map(p => ({
+      matchupId: p.matchupId,
+      label: p.label,
+      players: p.players,
+      points: pairPoints[p.matchupId],
+      holeDetails: holeDetails[p.matchupId],
+    }))
+    .sort((a, b) => b.points - a.points);
 }
 
 // Pre-computed course handicaps for display
