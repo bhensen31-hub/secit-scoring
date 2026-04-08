@@ -186,6 +186,42 @@ export function cupStandings(allMatchStatuses) {
   return { team1, team2 };
 }
 
+// ─── Cash Game Pair Scorecard ────────────────────────────────────────────────
+
+// Computes per-hole best ball data for a single cash_game pair.
+// Returns { holeResults, runningTotal, holesScored }
+// Each holeResult: { hole, par, strokeIndex, pairNet, scoreToPar, runningTotal }
+// pairNet = best (lowest) net score between the two partners; null if neither scored.
+// runningTotal per hole = cumulative scoreToPar through that hole (null if not played).
+export function calculateCashGamePairScorecard(scores, matchup) {
+  const allPlayers = [...matchup.team1Players, ...matchup.team2Players];
+  const results = [];
+  let cumTotal = 0;
+  let holesScored = 0;
+
+  for (let hole = 1; hole <= 18; hole++) {
+    const par = COURSE.pars[hole - 1];
+    const si = COURSE.strokeIndex[hole - 1];
+    const nets = allPlayers
+      .map(pid => netScore(scores[`${pid}-${hole}`], pid, hole))
+      .filter(n => n !== null);
+
+    const pairNet = nets.length > 0 ? Math.min(...nets) : null;
+    const scoreToPar = pairNet !== null ? pairNet - par : null;
+
+    let holeRunningTotal = null;
+    if (scoreToPar !== null) {
+      cumTotal += scoreToPar;
+      holesScored++;
+      holeRunningTotal = cumTotal;
+    }
+
+    results.push({ hole, par, strokeIndex: si, pairNet, scoreToPar, runningTotal: holeRunningTotal });
+  }
+
+  return { holeResults: results, runningTotal: cumTotal, holesScored };
+}
+
 // ─── Cash Game Standings ─────────────────────────────────────────────────────
 
 // allMatchupScores: { [matchupId]: { "playerId-holeNum": gross } }

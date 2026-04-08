@@ -9,12 +9,35 @@ import {
   calculateMatchStatus,
   matchStatusLabel,
   matchPoints,
+  calculateCashGamePairScorecard,
   COURSE_HANDICAPS,
 } from '../lib/scoring';
 
+// Format a score-to-par integer as -1, E, +2 etc.
+function formatToPar(val) {
+  if (val === null || val === undefined) return '–';
+  if (val === 0) return 'E';
+  return val > 0 ? `+${val}` : `${val}`;
+}
+
+// Tailwind text color for score-to-par: red under, white even, grey over
+function toParColor(val) {
+  if (val === null || val === undefined) return 'text-fairway-500';
+  if (val < 0) return 'text-red-400';
+  if (val === 0) return 'text-white';
+  return 'text-fairway-500';
+}
+
 // ─── Hole Indicator Strip ─────────────────────────────────────────────────────
-function HoleStrip({ currentHole, onSelectHole, holes, holeResultMap }) {
+function HoleStrip({ currentHole, onSelectHole, holes, holeResultMap, cashHoleMap }) {
   const getHoleColor = (hole) => {
+    if (cashHoleMap) {
+      const r = cashHoleMap[hole];
+      if (!r || r.scoreToPar === null) return 'bg-fairway-700 text-fairway-400';
+      if (r.scoreToPar < 0) return 'bg-red-900/70 text-red-400';
+      if (r.scoreToPar === 0) return 'bg-fairway-600 text-white';
+      return 'bg-fairway-800 text-fairway-500';
+    }
     const r = holeResultMap[hole];
     if (!r || r.holeWinner === null) return 'bg-fairway-700 text-fairway-400';
     if (r.holeWinner === 0) return 'bg-fairway-600 text-fairway-200';
@@ -143,6 +166,9 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
 
   const [currentHole, setCurrentHole] = useState(start);
 
+  const isCashGame = round.format === 'cash_game';
+  const isTeamFormat = round.format === 'scramble' || round.format === 'modified_alternate_shot';
+
   const matchStatus = calculateMatchStatus(scores, matchup, round);
   const { holeResults, holesPlayed, holesRemaining, totalHoles, matchResult } = matchStatus;
   const pts = matchPoints(matchResult, holeResults);
@@ -151,11 +177,15 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
   const holeResultMap = Object.fromEntries(holeResults.map(r => [r.hole, r]));
   const currentResult = holeResultMap[currentHole];
 
+  // Cash game: per-hole best ball data (pair net, score to par, running total)
+  const cashPairData = isCashGame ? calculateCashGamePairScorecard(scores, matchup) : null;
+  const cashHoleMap = cashPairData
+    ? Object.fromEntries(cashPairData.holeResults.map(r => [r.hole, r]))
+    : null;
+  const currentCashHole = cashHoleMap ? cashHoleMap[currentHole] : null;
+
   const par = COURSE.pars[currentHole - 1];
   const si = COURSE.strokeIndex[currentHole - 1];
-
-  const isCashGame = round.format === 'cash_game';
-  const isTeamFormat = round.format === 'scramble' || round.format === 'modified_alternate_shot';
 
   const canEnterTeam1 = myTeam === 1;
   const canEnterTeam2 = myTeam === 2;
@@ -174,12 +204,22 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
         {isCashGame ? (
           <div className="text-center">
             <div className="text-xs text-fairway-400 mb-1">{round.name} · Pair Scorecard</div>
-            <div className="text-white font-semibold text-sm">
-              {matchup.label}
-            </div>
-            <div className="text-fairway-500 text-xs mt-1">
-              Cash game — pair best ball vs field
-            </div>
+            <div className="text-white font-semibold text-sm">{matchup.label}</div>
+            {cashPairData && cashPairData.holesScored > 0 ? (
+              <div className="mt-2 flex items-center justify-center gap-4">
+                <div>
+                  <div className={`text-2xl font-bold font-display ${toParColor(cashPairData.runningTotal)}`}>
+                    {formatToPar(cashPairData.runningTotal)}
+                  </div>
+                  <div className="text-fairway-500 text-xs">thru {cashPairData.holesScored}</div>
+                </div>
+                {cashPairData.holesScored < 18 && (
+                  <div className="text-fairway-600 text-xs">{18 - cashPairData.holesScored} holes left</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-fairway-500 text-xs mt-1">No scores yet</div>
+            )}
           </div>
         ) : (
           <div>
@@ -218,6 +258,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
             onSelectHole={setCurrentHole}
             holes={holes}
             holeResultMap={holeResultMap}
+            cashHoleMap={cashHoleMap}
           />
         </div>
 
@@ -239,16 +280,31 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
             </div>
           </div>
 
-          {currentResult?.holeWinner !== null && currentResult?.holeWinner !== undefined && (
-            <div className={`px-3 py-1 rounded-full text-xs font-bold
-              ${currentResult.holeWinner === 0 ? 'bg-fairway-700 text-fairway-300'
-                : currentResult.holeWinner === 1 ? 'bg-fairway-600 text-white'
-                : 'bg-rough-700 text-gold-300'}
-            `}>
-              {currentResult.holeWinner === 0 ? 'Halved'
-                : currentResult.holeWinner === 1 ? `${t1Label.split(' ')[0]} wins`
-                : `${t2Label.split(' ')[0]} wins`}
-            </div>
+          {isCashGame ? (
+            currentCashHole?.scoreToPar !== null && currentCashHole?.scoreToPar !== undefined ? (
+              <div className="flex flex-col items-end gap-0.5">
+                <div className={`text-lg font-bold font-display ${toParColor(currentCashHole.scoreToPar)}`}>
+                  {formatToPar(currentCashHole.scoreToPar)}
+                </div>
+                {currentCashHole.runningTotal !== null && (
+                  <div className={`text-xs ${toParColor(currentCashHole.runningTotal)}`}>
+                    {formatToPar(currentCashHole.runningTotal)} total
+                  </div>
+                )}
+              </div>
+            ) : null
+          ) : (
+            currentResult?.holeWinner !== null && currentResult?.holeWinner !== undefined && (
+              <div className={`px-3 py-1 rounded-full text-xs font-bold
+                ${currentResult.holeWinner === 0 ? 'bg-fairway-700 text-fairway-300'
+                  : currentResult.holeWinner === 1 ? 'bg-fairway-600 text-white'
+                  : 'bg-rough-700 text-gold-300'}
+              `}>
+                {currentResult.holeWinner === 0 ? 'Halved'
+                  : currentResult.holeWinner === 1 ? `${t1Label.split(' ')[0]} wins`
+                  : `${t2Label.split(' ')[0]} wins`}
+              </div>
+            )
           )}
         </div>
       </div>
@@ -305,6 +361,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
         t1Label={t1Label}
         t2Label={t2Label}
         isCashGame={isCashGame}
+        cashHoleResults={cashPairData?.holeResults}
       />
     </div>
   );
@@ -381,9 +438,8 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
 }
 
 // ─── Scorecard Summary Table ──────────────────────────────────────────────────
-function ScorecardTable({ holeResults, t1Label, t2Label, isCashGame }) {
+function ScorecardTable({ holeResults, t1Label, t2Label, isCashGame, cashHoleResults }) {
   const [show, setShow] = useState(false);
-  const isFullRound = holeResults.length === 18;
 
   return (
     <div>
@@ -394,82 +450,141 @@ function ScorecardTable({ holeResults, t1Label, t2Label, isCashGame }) {
         {show ? '▲ Hide' : '▼ Show'} full scorecard
       </button>
 
-      {show && (
-        <div className="overflow-x-auto rounded-xl border border-fairway-700 bg-fairway-900/60 animate-fade-in">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-fairway-700">
-                <th className="text-fairway-400 font-medium px-2 py-2 text-left sticky left-0 bg-fairway-900/90 w-8">H</th>
-                <th className="text-fairway-400 font-medium px-2 py-2">Par</th>
-                <th className="text-fairway-400 font-medium px-2 py-2">SI</th>
-                <th className="text-fairway-300 font-medium px-2 py-2 truncate max-w-[60px]">
-                  {t1Label.split(' ')[0]}
-                </th>
-                <th className="text-fairway-300 font-medium px-2 py-2 truncate max-w-[60px]">
-                  {t2Label.split(' ')[0]}
-                </th>
-                {!isCashGame && <th className="text-fairway-400 font-medium px-2 py-2">Pts</th>}
-                {!isCashGame && <th className="text-fairway-400 font-medium px-2 py-2">+/-</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {holeResults.map((r, i) => (
-                <tr
-                  key={r.hole}
-                  className={`border-b border-fairway-800
-                    ${isFullRound && i === 8 ? 'border-b-2 border-fairway-600' : ''}
-                    ${r.holeWinner === 1 ? 'bg-fairway-800/60' : r.holeWinner === 2 ? 'bg-rough-900/60' : ''}
-                  `}
-                >
-                  <td className="px-2 py-1.5 font-semibold text-gold-400 sticky left-0 bg-inherit">{r.hole}</td>
-                  <td className="px-2 py-1.5 text-center text-fairway-400">{r.par}</td>
-                  <td className="px-2 py-1.5 text-center text-fairway-600">{r.strokeIndex}</td>
-                  <td className={`px-2 py-1.5 text-center font-medium
-                    ${r.holeWinner === 1 ? 'text-fairway-200' : 'text-fairway-400'}`}>
-                    {r.team1Net ?? '–'}
-                  </td>
-                  <td className={`px-2 py-1.5 text-center font-medium
-                    ${r.holeWinner === 2 ? 'text-gold-300' : 'text-fairway-400'}`}>
-                    {r.team2Net ?? '–'}
-                  </td>
-                  {!isCashGame && (
-                    <td className="px-2 py-1.5 text-center">
-                      {r.holeWinner === null ? '–'
-                        : r.holeWinner === 0 ? <span className="text-fairway-400">½</span>
-                        : r.holeWinner === 1 ? <span className="text-fairway-200">T1</span>
-                        : <span className="text-gold-400">T2</span>}
-                    </td>
-                  )}
-                  {!isCashGame && (
-                    <td className="px-2 py-1.5 text-center">
-                      {r.holeWinner !== null ? (
-                        <span className={
-                          r.runningHolesUp > 0 ? 'text-fairway-300'
-                          : r.runningHolesUp < 0 ? 'text-gold-400'
-                          : 'text-fairway-500'}>
-                          {r.runningHolesUp === 0 ? 'AS'
-                            : r.runningHolesUp > 0 ? `T1 +${r.runningHolesUp}`
-                            : `T2 +${Math.abs(r.runningHolesUp)}`}
-                        </span>
-                      ) : '–'}
-                    </td>
-                  )}
-                </tr>
-              ))}
-              <tr className="bg-fairway-800/80 font-semibold">
-                <td className="px-2 py-2 text-fairway-300 sticky left-0 bg-fairway-800" colSpan={3}>Total</td>
-                <td className="px-2 py-2 text-center text-fairway-200">
-                  {holeResults.filter(r => r.team1Net !== null).reduce((s, r) => s + r.team1Net, 0) || '–'}
-                </td>
-                <td className="px-2 py-2 text-center text-fairway-200">
-                  {holeResults.filter(r => r.team2Net !== null).reduce((s, r) => s + r.team2Net, 0) || '–'}
-                </td>
-                {!isCashGame && <td colSpan={2} />}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
+      {show && isCashGame && cashHoleResults ? (
+        <CashGameTable cashHoleResults={cashHoleResults} />
+      ) : show ? (
+        <MatchTable holeResults={holeResults} t1Label={t1Label} t2Label={t2Label} />
+      ) : null}
+    </div>
+  );
+}
+
+function CashGameTable({ cashHoleResults }) {
+  const scored = cashHoleResults.filter(r => r.scoreToPar !== null);
+  const totalNet = scored.reduce((s, r) => s + r.pairNet, 0);
+  const totalToPar = scored.reduce((s, r) => s + r.scoreToPar, 0);
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-fairway-700 bg-fairway-900/60 animate-fade-in">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-fairway-700">
+            <th className="text-fairway-400 font-medium px-2 py-2 text-left sticky left-0 bg-fairway-900/90 w-8">H</th>
+            <th className="text-fairway-400 font-medium px-2 py-2">Par</th>
+            <th className="text-fairway-400 font-medium px-2 py-2">SI</th>
+            <th className="text-fairway-300 font-medium px-2 py-2">Net</th>
+            <th className="text-fairway-300 font-medium px-2 py-2">+/-</th>
+            <th className="text-fairway-400 font-medium px-2 py-2">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cashHoleResults.map((r, i) => (
+            <tr
+              key={r.hole}
+              className={`border-b border-fairway-800 ${i === 8 ? 'border-b-2 border-fairway-600' : ''}`}
+            >
+              <td className="px-2 py-1.5 font-semibold text-gold-400 sticky left-0 bg-inherit">{r.hole}</td>
+              <td className="px-2 py-1.5 text-center text-fairway-400">{r.par}</td>
+              <td className="px-2 py-1.5 text-center text-fairway-600">{r.strokeIndex}</td>
+              <td className="px-2 py-1.5 text-center text-fairway-300">
+                {r.pairNet ?? '–'}
+              </td>
+              <td className={`px-2 py-1.5 text-center font-semibold ${toParColor(r.scoreToPar)}`}>
+                {formatToPar(r.scoreToPar)}
+              </td>
+              <td className={`px-2 py-1.5 text-center ${toParColor(r.runningTotal)}`}>
+                {r.runningTotal !== null ? formatToPar(r.runningTotal) : '–'}
+              </td>
+            </tr>
+          ))}
+          <tr className="bg-fairway-800/80 font-semibold">
+            <td className="px-2 py-2 text-fairway-300 sticky left-0 bg-fairway-800" colSpan={3}>Total</td>
+            <td className="px-2 py-2 text-center text-fairway-200">
+              {scored.length > 0 ? totalNet : '–'}
+            </td>
+            <td className={`px-2 py-2 text-center font-bold ${toParColor(scored.length > 0 ? totalToPar : null)}`}>
+              {scored.length > 0 ? formatToPar(totalToPar) : '–'}
+            </td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MatchTable({ holeResults, t1Label, t2Label }) {
+  const isFullRound = holeResults.length === 18;
+  return (
+    <div className="overflow-x-auto rounded-xl border border-fairway-700 bg-fairway-900/60 animate-fade-in">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-fairway-700">
+            <th className="text-fairway-400 font-medium px-2 py-2 text-left sticky left-0 bg-fairway-900/90 w-8">H</th>
+            <th className="text-fairway-400 font-medium px-2 py-2">Par</th>
+            <th className="text-fairway-400 font-medium px-2 py-2">SI</th>
+            <th className="text-fairway-300 font-medium px-2 py-2 truncate max-w-[60px]">
+              {t1Label.split(' ')[0]}
+            </th>
+            <th className="text-fairway-300 font-medium px-2 py-2 truncate max-w-[60px]">
+              {t2Label.split(' ')[0]}
+            </th>
+            <th className="text-fairway-400 font-medium px-2 py-2">Pts</th>
+            <th className="text-fairway-400 font-medium px-2 py-2">+/-</th>
+          </tr>
+        </thead>
+        <tbody>
+          {holeResults.map((r, i) => (
+            <tr
+              key={r.hole}
+              className={`border-b border-fairway-800
+                ${isFullRound && i === 8 ? 'border-b-2 border-fairway-600' : ''}
+                ${r.holeWinner === 1 ? 'bg-fairway-800/60' : r.holeWinner === 2 ? 'bg-rough-900/60' : ''}
+              `}
+            >
+              <td className="px-2 py-1.5 font-semibold text-gold-400 sticky left-0 bg-inherit">{r.hole}</td>
+              <td className="px-2 py-1.5 text-center text-fairway-400">{r.par}</td>
+              <td className="px-2 py-1.5 text-center text-fairway-600">{r.strokeIndex}</td>
+              <td className={`px-2 py-1.5 text-center font-medium
+                ${r.holeWinner === 1 ? 'text-fairway-200' : 'text-fairway-400'}`}>
+                {r.team1Net ?? '–'}
+              </td>
+              <td className={`px-2 py-1.5 text-center font-medium
+                ${r.holeWinner === 2 ? 'text-gold-300' : 'text-fairway-400'}`}>
+                {r.team2Net ?? '–'}
+              </td>
+              <td className="px-2 py-1.5 text-center">
+                {r.holeWinner === null ? '–'
+                  : r.holeWinner === 0 ? <span className="text-fairway-400">½</span>
+                  : r.holeWinner === 1 ? <span className="text-fairway-200">T1</span>
+                  : <span className="text-gold-400">T2</span>}
+              </td>
+              <td className="px-2 py-1.5 text-center">
+                {r.holeWinner !== null ? (
+                  <span className={
+                    r.runningHolesUp > 0 ? 'text-fairway-300'
+                    : r.runningHolesUp < 0 ? 'text-gold-400'
+                    : 'text-fairway-500'}>
+                    {r.runningHolesUp === 0 ? 'AS'
+                      : r.runningHolesUp > 0 ? `T1 +${r.runningHolesUp}`
+                      : `T2 +${Math.abs(r.runningHolesUp)}`}
+                  </span>
+                ) : '–'}
+              </td>
+            </tr>
+          ))}
+          <tr className="bg-fairway-800/80 font-semibold">
+            <td className="px-2 py-2 text-fairway-300 sticky left-0 bg-fairway-800" colSpan={3}>Total</td>
+            <td className="px-2 py-2 text-center text-fairway-200">
+              {holeResults.filter(r => r.team1Net !== null).reduce((s, r) => s + r.team1Net, 0) || '–'}
+            </td>
+            <td className="px-2 py-2 text-center text-fairway-200">
+              {holeResults.filter(r => r.team2Net !== null).reduce((s, r) => s + r.team2Net, 0) || '–'}
+            </td>
+            <td colSpan={2} />
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
