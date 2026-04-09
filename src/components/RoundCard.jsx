@@ -24,7 +24,7 @@ const FORMAT_ICONS = {
   cash_game: '💰',
   best_ball: '⛳',
   modified_alternate_shot: '🏌️',
-  scramble: '🔄',
+  scramble: '🎯',
   singles: '🥇',
 };
 
