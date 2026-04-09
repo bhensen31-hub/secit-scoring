@@ -312,8 +312,8 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
                   : 'bg-rough-700 text-gold-300'}
               `}>
                 {currentResult.holeWinner === 0 ? 'Halved'
-                  : currentResult.holeWinner === 1 ? 'Team 1'
-                  : 'Team 2'}
+                  : currentResult.holeWinner === 1 ? 'Team 1 Wins'
+                  : 'Team 2 Wins'}
               </div>
             )
           )}
