@@ -4,7 +4,6 @@ import {
   calculateMatchStatus,
   matchStatusLabel,
   matchPoints,
-  calculateCashGameStandings,
   calculateCashGamePairScorecard,
 } from '../lib/scoring';
 
@@ -69,31 +68,45 @@ export default function RoundCard({ round, allScores }) {
 
 // ─── Cash Game Body ───────────────────────────────────────────────────────────
 function CashGameBody({ round, allScores }) {
-  const standings = calculateCashGameStandings(allScores || {}, round);
+  // Build pair data and sort by cumulative score to par (lowest wins; unstarted pairs last)
+  const pairs = round.matchups.map(matchup => {
+    const pairScores = (allScores || {})[matchup.id] || {};
+    const pairData = calculateCashGamePairScorecard(pairScores, matchup);
+    return { matchup, pairData };
+  });
+
+  pairs.sort((a, b) => {
+    const aScored = a.pairData.holesScored > 0;
+    const bScored = b.pairData.holesScored > 0;
+    if (!aScored && !bScored) return 0;
+    if (!aScored) return 1;
+    if (!bScored) return -1;
+    return a.pairData.runningTotal - b.pairData.runningTotal;
+  });
+
+  const anyStarted = pairs.some(p => p.pairData.holesScored > 0);
 
   return (
     <div className="divide-y divide-fairway-700/40">
-      {standings.map((pair, rank) => {
-        const matchup = round.matchups.find(m => m.id === pair.matchupId);
-        const pairScores = (allScores || {})[pair.matchupId] || {};
-        const pairData = matchup ? calculateCashGamePairScorecard(pairScores, matchup) : null;
-        const { holesScored = 0, runningTotal = 0, holeResults = [] } = pairData || {};
+      {pairs.map(({ matchup, pairData }, rank) => {
+        const { holesScored, runningTotal, holeResults } = pairData;
         const scoredHoles = holeResults.filter(r => r.scoreToPar !== null);
+        const isLeading = anyStarted && rank === 0 && holesScored > 0;
 
         return (
           <Link
-            key={pair.matchupId}
-            to={`/matchup/${pair.matchupId}`}
+            key={matchup.id}
+            to={`/matchup/${matchup.id}`}
             className="block px-4 py-3 hover:bg-fairway-700/30 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                ${rank === 0 && pair.points > 0 ? 'bg-gold-500 text-fairway-900' : 'bg-fairway-700 text-fairway-400'}`}>
+                ${isLeading ? 'bg-gold-500 text-fairway-900' : 'bg-fairway-700 text-fairway-400'}`}>
                 {rank + 1}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-white text-sm font-medium">{pair.label}</span>
+                  <span className="text-white text-sm font-medium">{matchup.label}</span>
                   {holesScored > 0 && (
                     <span className={`font-bold text-base font-display flex-shrink-0 ${toParColor(runningTotal)}`}>
                       {formatToPar(runningTotal)}
@@ -101,9 +114,7 @@ function CashGameBody({ round, allScores }) {
                   )}
                 </div>
                 <div className="text-fairway-500 text-xs mt-0.5">
-                  {holesScored > 0
-                    ? `${pair.points % 1 === 0 ? pair.points : pair.points.toFixed(1)} pts · thru ${holesScored}`
-                    : 'Not started'}
+                  {holesScored > 0 ? `thru ${holesScored}` : 'Not started'}
                 </div>
                 {/* Per-hole score-to-par strip */}
                 {scoredHoles.length > 0 && (

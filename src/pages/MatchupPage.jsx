@@ -1,9 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
-import { getMatchup, PLAYERS } from '../lib/tournament';
+import { getMatchup } from '../lib/tournament';
 import { useScores } from '../hooks/useScores';
 import ScorecardView from '../components/ScorecardView';
 
-export default function MatchupPage({ myTeam }) {
+export default function MatchupPage() {
   const { matchupId } = useParams();
   const result = getMatchup(matchupId);
   const { scores, loading, error, upsertScore, isConnected } = useScores(matchupId);
@@ -47,7 +47,7 @@ export default function MatchupPage({ myTeam }) {
       </div>
 
       {/* Format info */}
-      <FormatInfo round={round} matchup={matchup} myTeam={myTeam} />
+      <FormatInfo round={round} />
 
       {/* Scorecard */}
       {loading ? (
@@ -62,26 +62,16 @@ export default function MatchupPage({ myTeam }) {
           round={round}
           scores={scores}
           upsertScore={upsertScore}
-          myTeam={myTeam}
         />
       )}
     </div>
   );
 }
 
-function FormatInfo({ round, matchup, myTeam }) {
-  const canEnter = myTeam !== null;
-  const myPlayers = myTeam === 1 ? matchup.team1Players : matchup.team2Players;
-
+function FormatInfo({ round }) {
   return (
     <div className="bg-fairway-900 border border-fairway-700/50 rounded-xl p-3 mb-4 text-xs text-fairway-400 leading-relaxed">
       <span className="text-fairway-300 font-medium">{round.description}</span>
-      {canEnter && (
-        <span className="ml-2 text-gold-500">
-          · You're entering scores for {myPlayers.map(id => PLAYERS[id].name).join(' & ')}.
-        </span>
-      )}
-      {!canEnter && <span className="ml-2 text-fairway-600">· View-only mode.</span>}
     </div>
   );
 }

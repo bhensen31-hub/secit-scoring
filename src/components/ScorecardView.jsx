@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { PLAYERS, COURSE, teamScoreKey } from '../lib/tournament';
 import {
   courseHandicap,
@@ -65,27 +65,44 @@ function HoleStrip({ currentHole, onSelectHole, holes, holeResultMap, cashHoleMa
 }
 
 // ─── Score Input ──────────────────────────────────────────────────────────────
-function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, playerLabel }) {
+function ScoreInput({ playerId, holeNumber, grossScore, netSc, onSave, playerLabel }) {
   const [editing, setEditing] = useState(false);
   const [localVal, setLocalVal] = useState('');
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
+  const debounceRef = useRef(null);
   const par = COURSE.pars[holeNumber - 1];
 
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
   const handleTap = () => {
-    if (!canEdit) return;
     setLocalVal(grossScore ? String(grossScore) : '');
     setEditing(true);
     setTimeout(() => inputRef.current?.select(), 50);
   };
 
-  const handleSave = async () => {
-    const val = parseInt(localVal, 10);
-    if (isNaN(val) || val < 1 || val > 20) { setEditing(false); return; }
+  const doSave = async (val) => {
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 1 || num > 20) { setEditing(false); return; }
     setSaving(true);
-    await onSave(val);
+    await onSave(num);
     setSaving(false);
     setEditing(false);
+  };
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setLocalVal(val);
+    clearTimeout(debounceRef.current);
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= 1 && num <= 20) {
+      debounceRef.current = setTimeout(() => doSave(val), 500);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') { clearTimeout(debounceRef.current); doSave(localVal); }
+    if (e.key === 'Escape') { clearTimeout(debounceRef.current); setEditing(false); }
   };
 
   const scoreColor = (gross) => {
@@ -124,34 +141,28 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
               min="1"
               max="20"
               value={localVal}
-              onChange={e => setLocalVal(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
               className="w-14 text-center bg-fairway-700 border border-gold-500 text-white text-lg
                 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-gold-400"
               autoFocus
             />
-            <button onClick={handleSave} disabled={saving}
-              className="bg-gold-600 hover:bg-gold-500 text-fairway-900 font-bold text-sm
-                px-2 py-1.5 rounded-lg transition-colors disabled:opacity-50">
-              {saving ? '…' : '✓'}
-            </button>
-            <button onClick={() => setEditing(false)} className="text-fairway-500 text-sm px-1">✕</button>
+            {saving && <span className="text-fairway-500 text-sm">…</span>}
+            <button onClick={() => { clearTimeout(debounceRef.current); setEditing(false); }}
+              className="text-fairway-500 text-sm px-1">✕</button>
           </div>
         ) : (
           <button
             onClick={handleTap}
             className={`
-              w-12 h-10 rounded-xl text-xl font-bold transition-all
-              ${canEdit ? 'active:scale-95 hover:bg-fairway-600' : ''}
+              w-12 h-10 rounded-xl text-xl font-bold transition-all active:scale-95 hover:bg-fairway-600
               ${grossScore
                 ? `${scoreColor(grossScore)} bg-fairway-700`
-                : canEdit
-                  ? 'bg-fairway-700 border-2 border-dashed border-fairway-600 text-fairway-600'
-                  : 'bg-fairway-800 text-fairway-700'
+                : 'bg-fairway-700 border-2 border-dashed border-fairway-600 text-fairway-600'
               }
             `}
           >
-            {grossScore || (canEdit ? '+' : '–')}
+            {grossScore || '+'}
           </button>
         )}
       </div>
@@ -160,7 +171,7 @@ function ScoreInput({ playerId, holeNumber, grossScore, netSc, canEdit, onSave, 
 }
 
 // ─── Main Scorecard View ──────────────────────────────────────────────────────
-export default function ScorecardView({ matchup, round, scores, upsertScore, myTeam }) {
+export default function ScorecardView({ matchup, round, scores, upsertScore }) {
   const { start = 1, end = 18 } = matchup.holeRange || {};
   const holes = Array.from({ length: end - start + 1 }, (_, i) => start + i);
 
@@ -187,8 +198,8 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
   const par = COURSE.pars[currentHole - 1];
   const si = COURSE.strokeIndex[currentHole - 1];
 
-  const canEnterTeam1 = myTeam === 1;
-  const canEnterTeam2 = myTeam === 2;
+  const canEnterTeam1 = true;
+  const canEnterTeam2 = true;
 
   const t1Label = isCashGame
     ? matchup.team1Players.map(id => PLAYERS[id].name).join(' & ')
@@ -301,8 +312,8 @@ export default function ScorecardView({ matchup, round, scores, upsertScore, myT
                   : 'bg-rough-700 text-gold-300'}
               `}>
                 {currentResult.holeWinner === 0 ? 'Halved'
-                  : currentResult.holeWinner === 1 ? `${t1Label.split(' ')[0]} wins`
-                  : `${t2Label.split(' ')[0]} wins`}
+                  : currentResult.holeWinner === 1 ? 'Team 1'
+                  : 'Team 2'}
               </div>
             )
           )}
@@ -380,7 +391,7 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
     const hcpLabel = round.format === 'scramble' ? `Scramble HCP ${thcp}` : `Alt Shot HCP ${thcp}`;
 
     return (
-      <div className={`rounded-xl border overflow-hidden ${!canEdit ? 'opacity-80' : ''}
+      <div className={`rounded-xl border overflow-hidden
         ${isLeft ? 'border-fairway-600' : 'border-rough-700'}`}>
         <div className={`px-3 py-2 flex items-center justify-between
           ${isLeft ? 'bg-fairway-700/60' : 'bg-rough-800/60'}`}>
@@ -393,7 +404,7 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
             holeNumber={holeNumber}
             grossScore={gross}
             netSc={net}
-            canEdit={canEdit}
+
             onSave={val => onSave(keyPlayer, holeNumber, val)}
             playerLabel={playerLabel}
           />
@@ -404,12 +415,11 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
 
   // Individual scores (best_ball, singles, cash_game)
   return (
-    <div className={`rounded-xl border overflow-hidden ${!canEdit ? 'opacity-80' : ''}
+    <div className={`rounded-xl border overflow-hidden
       ${isLeft ? 'border-fairway-600' : 'border-rough-700'}`}>
-      <div className={`px-3 py-2 flex items-center justify-between
+      <div className={`px-3 py-2
         ${isLeft ? 'bg-fairway-700/60' : 'bg-rough-800/60'}`}>
         <span className="text-gold-400 text-xs font-semibold">{title}</span>
-        {!canEdit && <span className="text-fairway-600 text-xs">View only</span>}
       </div>
       <div className={`px-3 py-1 ${isLeft ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
         {players.map(pid => {
@@ -426,7 +436,7 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
               holeNumber={holeNumber}
               grossScore={gross}
               netSc={net}
-              canEdit={canEdit}
+  
               onSave={val => onSave(pid, holeNumber, val)}
               playerLabel={label}
             />
