@@ -76,7 +76,7 @@ export const ROUNDS = [
     format: 'modified_alternate_shot',
     countsForCup: true,
     description:
-      'Partners alternate shots. Team handicap = 50% of combined course handicaps. 1 pt per hole won + 1 match bonus.',
+      'Both partners hit tee shot. Then partners alternate shots. Team handicap = 50% of combined course handicaps. 1 pt per hole won + 1 match bonus.',
     matchups: [
       {
         id: 'match1-1',
