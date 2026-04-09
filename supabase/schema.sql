@@ -60,11 +60,33 @@ create policy "anyone can update scores"
   on hole_scores for update
   using (true);
 
+-- ─── 19th Hole: Drinks Table ─────────────────────────────────────────────────
+-- One row per drink logged. player_id matches slugs in src/lib/tournament.js.
+
+create table if not exists drinks (
+  id          uuid primary key default uuid_generate_v4(),
+  player_id   text        not null,
+  logged_at   timestamptz not null default now()
+);
+
+create index if not exists idx_drinks_player on drinks (player_id);
+
+alter table drinks enable row level security;
+
+create policy "anyone can read drinks"
+  on drinks for select
+  using (true);
+
+create policy "anyone can log drinks"
+  on drinks for insert
+  with check (true);
+
 -- ─── Real-time ────────────────────────────────────────────────────────────────
 -- Enable real-time for the hole_scores table.
 -- In Supabase Dashboard → Database → Replication, enable hole_scores.
 -- Or run:
 alter publication supabase_realtime add table hole_scores;
+alter publication supabase_realtime add table drinks;
 
 -- ─── Done ─────────────────────────────────────────────────────────────────────
 -- After running this schema:

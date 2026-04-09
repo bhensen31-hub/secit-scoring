@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(ls /Users/bhensen/secit-scoring/*.json /Users/bhensen/secit-scoring/*.js /Users/bhensen/secit-scoring/*.html)"
+      "Bash(ls /Users/bhensen/secit-scoring/*.json /Users/bhensen/secit-scoring/*.js /Users/bhensen/secit-scoring/*.html)",
+      "Bash(git add:*)"
     ]
   }
 }
