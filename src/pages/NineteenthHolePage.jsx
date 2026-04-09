@@ -111,6 +111,9 @@ export default function NineteenthHolePage() {
         </div>
       </div>
 
+      {/* Team totals */}
+      <TeamDrinksBanner drinkCounts={drinkCounts} />
+
       {/* Leaderboard */}
       <div>
         <div className="text-fairway-400 text-xs font-semibold uppercase tracking-widest mb-3">
@@ -164,6 +167,62 @@ export default function NineteenthHolePage() {
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Team Drinks Banner ───────────────────────────────────────────────────────
+function TeamDrinksBanner({ drinkCounts }) {
+  const team1Total = TEAM1_PLAYERS.reduce((s, id) => s + (drinkCounts[id] || 0), 0);
+  const team2Total = TEAM2_PLAYERS.reduce((s, id) => s + (drinkCounts[id] || 0), 0);
+  const grandTotal = team1Total + team2Total;
+
+  const team1Width = grandTotal > 0 ? (team1Total / grandTotal) * 100 : 50;
+
+  return (
+    <div className="bg-gradient-to-br from-fairway-800 to-fairway-900 rounded-2xl p-5 border border-fairway-700/50">
+      <div className="text-center text-gold-400 font-display text-xs font-semibold uppercase tracking-widest mb-4">
+        Team Drinks
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 text-center">
+          <div className="text-fairway-400 text-xs mb-1">Team 1</div>
+          <div className={`font-display font-bold text-4xl tabular-nums
+            ${team1Total > team2Total ? 'text-gold-400' : 'text-white'}`}>
+            {team1Total}
+          </div>
+          <div className="text-fairway-500 text-xs mt-1">Derek · Brandon · Tyson · Todd</div>
+        </div>
+
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-2xl">🍺</span>
+          <div className="text-fairway-700 text-xs">{grandTotal} total</div>
+        </div>
+
+        <div className="flex-1 text-center">
+          <div className="text-fairway-400 text-xs mb-1">Team 2</div>
+          <div className={`font-display font-bold text-4xl tabular-nums
+            ${team2Total > team1Total ? 'text-gold-400' : 'text-white'}`}>
+            {team2Total}
+          </div>
+          <div className="text-fairway-500 text-xs mt-1">Gary · Slim · Mike · Ketan</div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-4 h-2 bg-fairway-700 rounded-full overflow-hidden">
+        {grandTotal > 0 && (
+          <div
+            className="h-full bg-gradient-to-r from-fairway-400 to-rough-500 transition-all duration-700 rounded-full"
+            style={{ width: `${team1Width}%` }}
+          />
+        )}
+      </div>
+      <div className="flex justify-between text-fairway-600 text-xs mt-1">
+        <span>Team 1</span>
+        <span>Team 2</span>
       </div>
     </div>
   );
