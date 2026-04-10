@@ -19,9 +19,9 @@ export function strokesOnHole(playerCourseHcp, holeStrokeIndex) {
   return strokes;
 }
 
-export function netScore(grossScore, playerId, holeNumber) {
+export function netScore(grossScore, playerId, holeNumber, course = COURSE) {
   if (!grossScore || grossScore <= 0) return null;
-  const si = COURSE.strokeIndex[holeNumber - 1];
+  const si = course.strokeIndex[holeNumber - 1];
   const hcp = courseHandicap(playerId);
   return grossScore - strokesOnHole(hcp, si);
 }
@@ -56,6 +56,7 @@ export function teamNetScore(grossScore, playerIds, format, holeNumber) {
 // matchup.holeRange = { start, end } — optional, defaults to 1–18
 // Returns holeResults, holesUp, holesPlayed, holesRemaining, totalHoles, matchResult
 export function calculateMatchStatus(holeScores, matchup, round) {
+  const course = round.course || COURSE;
   const { start = 1, end = 18 } = matchup.holeRange || {};
   const totalHoles = end - start + 1;
 
@@ -68,10 +69,10 @@ export function calculateMatchStatus(holeScores, matchup, round) {
 
     if (round.format === 'singles' || round.format === 'best_ball' || round.format === 'cash_game') {
       const t1Nets = matchup.team1Players
-        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole))
+        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole, course))
         .filter(n => n !== null);
       const t2Nets = matchup.team2Players
-        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole))
+        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole, course))
         .filter(n => n !== null);
       if (t1Nets.length > 0) team1Net = Math.min(...t1Nets);
       if (t2Nets.length > 0) team2Net = Math.min(...t2Nets);
@@ -92,8 +93,8 @@ export function calculateMatchStatus(holeScores, matchup, round) {
 
     results.push({
       hole,
-      par: COURSE.pars[hole - 1],
-      strokeIndex: COURSE.strokeIndex[hole - 1],
+      par: course.pars[hole - 1],
+      strokeIndex: course.strokeIndex[hole - 1],
       team1Net,
       team2Net,
       holeWinner,

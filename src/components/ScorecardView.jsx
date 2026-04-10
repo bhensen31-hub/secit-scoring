@@ -65,13 +65,12 @@ function HoleStrip({ currentHole, onSelectHole, holes, holeResultMap, cashHoleMa
 }
 
 // ─── Score Input ──────────────────────────────────────────────────────────────
-function ScoreInput({ playerId, holeNumber, grossScore, netSc, onSave, playerLabel }) {
+function ScoreInput({ playerId, holeNumber, grossScore, netSc, onSave, playerLabel, par }) {
   const [editing, setEditing] = useState(false);
   const [localVal, setLocalVal] = useState('');
   const [saving, setSaving] = useState(false);
   const inputRef = useRef(null);
   const debounceRef = useRef(null);
-  const par = COURSE.pars[holeNumber - 1];
 
   useEffect(() => () => clearTimeout(debounceRef.current), []);
 
@@ -195,8 +194,9 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
     : null;
   const currentCashHole = cashHoleMap ? cashHoleMap[currentHole] : null;
 
-  const par = COURSE.pars[currentHole - 1];
-  const si = COURSE.strokeIndex[currentHole - 1];
+  const course = round.course || COURSE;
+  const par = course.pars[currentHole - 1];
+  const si = course.strokeIndex[currentHole - 1];
 
   const canEnterTeam1 = true;
   const canEnterTeam2 = true;
@@ -236,6 +236,9 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
           <div>
             <div className="text-center text-xs text-fairway-400 mb-2">
               {round.name} · {matchup.nineLabel ?? round.subtitle}
+              {round.course && (
+                <span className="block text-fairway-600 text-xs mt-0.5">{round.course.name}</span>
+              )}
             </div>
             <div className="text-center text-white font-semibold text-sm mb-2">
               {matchStatusLabel(matchStatus, [t1Label, t2Label])}
@@ -332,6 +335,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
           scores={scores}
           canEdit={canEnterTeam1}
           onSave={upsertScore}
+          course={course}
         />
         <TeamScorePanel
           title={t2Label}
@@ -343,6 +347,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
           scores={scores}
           canEdit={canEnterTeam2}
           onSave={upsertScore}
+          course={course}
         />
       </div>
 
@@ -379,12 +384,12 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
 }
 
 // ─── Team Score Panel ─────────────────────────────────────────────────────────
-function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumber, scores, canEdit, onSave }) {
+function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumber, scores, canEdit, onSave, course }) {
   if (isTeamFormat) {
     const keyPlayer = teamScoreKey(players);
     const gross = scores[`${keyPlayer}-${holeNumber}`] || null;
     const thcp = teamHandicap(players, round.format);
-    const si = COURSE.strokeIndex[holeNumber - 1];
+    const si = course.strokeIndex[holeNumber - 1];
     const strokes = strokesOnHole(thcp, si);
     const net = gross ? gross - strokes : null;
     const playerLabel = players.map(id => PLAYERS[id].name).join(' & ');
@@ -404,7 +409,7 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
             holeNumber={holeNumber}
             grossScore={gross}
             netSc={net}
-
+            par={course.pars[holeNumber - 1]}
             onSave={val => onSave(keyPlayer, holeNumber, val)}
             playerLabel={playerLabel}
           />
@@ -424,9 +429,9 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
       <div className={`px-3 py-1 ${isLeft ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
         {players.map(pid => {
           const gross = scores[`${pid}-${holeNumber}`] || null;
-          const net = netScore(gross, pid, holeNumber);
+          const net = netScore(gross, pid, holeNumber, course);
           const hcp = COURSE_HANDICAPS[pid];
-          const si = COURSE.strokeIndex[holeNumber - 1];
+          const si = course.strokeIndex[holeNumber - 1];
           const strokes = strokesOnHole(hcp, si);
           const label = `${PLAYERS[pid].name} (CH ${hcp}${strokes > 0 ? `, −${strokes}` : ''})`;
           return (
@@ -436,7 +441,7 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
               holeNumber={holeNumber}
               grossScore={gross}
               netSc={net}
-  
+              par={course.pars[holeNumber - 1]}
               onSave={val => onSave(pid, holeNumber, val)}
               playerLabel={label}
             />

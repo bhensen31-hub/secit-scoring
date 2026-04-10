@@ -8,6 +8,16 @@ export const COURSE = {
   strokeIndex: [7, 13, 3, 11, 1, 15, 5, 9, 17, 2, 8, 14, 4, 10, 18, 6, 12, 16],
 };
 
+// Used for the Final Singles round only
+export const ECHELON_COURSE = {
+  name: 'Echelon Golf Club',
+  rating: 71.5,
+  slope: 128,
+  par: 72,
+  pars: [4, 4, 3, 5, 4, 4, 5, 3, 4, 4, 5, 4, 4, 5, 3, 4, 3, 4],
+  strokeIndex: [9, 13, 15, 1, 11, 7, 3, 17, 5, 14, 2, 12, 8, 4, 16, 10, 18, 6],
+};
+
 // ─── Players ─────────────────────────────────────────────────────────────────
 export const PLAYERS = {
   derek:   { id: 'derek',   name: 'Derek',   handicapIndex: 12.5, team: 1 },
@@ -150,6 +160,7 @@ export const ROUNDS = [
     id: 'singles',
     number: 4,
     name: 'Final Singles',
+    course: ECHELON_COURSE,
     subtitle: 'Two 9-Hole Matches Per Player',
     format: 'singles',
     countsForCup: true,
