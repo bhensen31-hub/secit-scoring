@@ -91,7 +91,18 @@ export default function NineteenthHolePage() {
                     : 'bg-fairway-900 border border-fairway-800'
                   }`}
               >
-                <div className="text-left min-w-0 flex-1">
+                <button
+                  onClick={() => isMe && count > 0 && removeDrink(id)}
+                  disabled={!isMe || count === 0}
+                  className={`w-9 h-9 rounded-lg text-xl font-bold leading-none transition-all active:scale-90 flex-shrink-0
+                    ${isMe && count > 0
+                      ? 'bg-fairway-600 text-fairway-200 hover:bg-fairway-500'
+                      : 'bg-fairway-800 text-fairway-700 cursor-not-allowed'
+                    }`}
+                >
+                  −
+                </button>
+                <div className="text-center min-w-0 flex-1 px-1">
                   <div className={`font-semibold text-sm ${isMe ? 'text-white' : 'text-fairway-600'}`}>
                     {PLAYERS[id].name}
                   </div>
@@ -99,30 +110,17 @@ export default function NineteenthHolePage() {
                     {count > 0 ? `${count} 🍺` : '–'}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={() => isMe && count > 0 && removeDrink(id)}
-                    disabled={!isMe || count === 0}
-                    className={`w-9 h-9 rounded-lg text-xl font-bold leading-none transition-all active:scale-90
-                      ${isMe && count > 0
-                        ? 'bg-fairway-600 text-fairway-200 hover:bg-fairway-500'
-                        : 'bg-fairway-800 text-fairway-700 cursor-not-allowed'
-                      }`}
-                  >
-                    −
-                  </button>
-                  <button
-                    onClick={() => isMe && logDrink(id)}
-                    disabled={!isMe}
-                    className={`w-9 h-9 rounded-lg text-xl font-bold leading-none transition-all active:scale-90
-                      ${isMe
-                        ? 'bg-gold-500 text-fairway-900 hover:bg-gold-400'
-                        : 'bg-fairway-800 text-fairway-700 cursor-not-allowed'
-                      }`}
-                  >
-                    +
-                  </button>
-                </div>
+                <button
+                  onClick={() => isMe && logDrink(id)}
+                  disabled={!isMe}
+                  className={`w-9 h-9 rounded-lg text-xl font-bold leading-none transition-all active:scale-90 flex-shrink-0
+                    ${isMe
+                      ? 'bg-gold-500 text-fairway-900 hover:bg-gold-400'
+                      : 'bg-fairway-800 text-fairway-700 cursor-not-allowed'
+                    }`}
+                >
+                  +
+                </button>
               </div>
             );
           })}
