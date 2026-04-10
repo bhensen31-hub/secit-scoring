@@ -1,4 +1,4 @@
-import { COURSE, PLAYERS, teamScoreKey } from './tournament';
+import { COURSE, PLAYERS, ROUNDS, teamScoreKey } from './tournament';
 
 // ─── Handicap Calculations ───────────────────────────────────────────────────
 
@@ -284,6 +284,31 @@ export function calculateCashGameStandings(allMatchupScores, round) {
       holeDetails: holeDetails[p.matchupId],
     }))
     .sort((a, b) => b.points - a.points);
+}
+
+// ─── Individual Points (Gold Leaderboard) ────────────────────────────────────
+
+// For every Cup matchup, both players on each side receive the full hole points
+// + match bonus earned by their team in that matchup.
+// allScores: { [matchupId]: { "playerId-holeNum": gross } }
+// Returns: { [playerId]: number }
+export function calculateIndividualPoints(allScores) {
+  const playerPoints = {};
+  for (const round of ROUNDS) {
+    if (!round.countsForCup) continue;
+    for (const matchup of round.matchups) {
+      const scores = allScores[matchup.id] || {};
+      const status = calculateMatchStatus(scores, matchup, round);
+      const pts = matchPoints(status.matchResult, status.holeResults);
+      for (const pid of matchup.team1Players) {
+        playerPoints[pid] = (playerPoints[pid] || 0) + pts.team1;
+      }
+      for (const pid of matchup.team2Players) {
+        playerPoints[pid] = (playerPoints[pid] || 0) + pts.team2;
+      }
+    }
+  }
+  return playerPoints;
 }
 
 // Pre-computed course handicaps for display

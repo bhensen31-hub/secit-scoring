@@ -17,6 +17,14 @@ export default function TabBar() {
           <span>Cup</span>
         </Link>
         <Link
+          to="/gold"
+          className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors
+            ${pathname === '/gold' ? 'text-gold-400' : 'text-fairway-500 hover:text-fairway-300'}`}
+        >
+          <span className="text-xl leading-none">🥇</span>
+          <span>Gold</span>
+        </Link>
+        <Link
           to="/19th-hole"
           className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors
             ${pathname === '/19th-hole' ? 'text-gold-400' : 'text-fairway-500 hover:text-fairway-300'}`}

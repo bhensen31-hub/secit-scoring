@@ -4,6 +4,7 @@ import TabBar from './components/TabBar';
 import HomePage from './pages/HomePage';
 import MatchupPage from './pages/MatchupPage';
 import NineteenthHolePage from './pages/NineteenthHolePage';
+import GoldPage from './pages/GoldPage';
 
 export default function App() {
   const { pathname } = useLocation();
@@ -16,6 +17,7 @@ export default function App() {
       <main className={showTabBar ? 'pb-16' : ''}>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/gold" element={<GoldPage />} />
           <Route path="/19th-hole" element={<NineteenthHolePage />} />
           <Route path="/matchup/:matchupId" element={<MatchupPage />} />
           <Route path="*" element={
