@@ -5,6 +5,48 @@ import {
 } from '../lib/scoring';
 import { useAllScores } from '../hooks/useScores';
 
+const WIN_THRESHOLD = 97.5;
+
+// ─── Points Dial ──────────────────────────────────────────────────────────────
+function PointsDial({ points, color }) {
+  const r = 28;
+  const cx = 36;
+  const cy = 36;
+  const C = 2 * Math.PI * r;
+  const trackLen = 0.75 * C;   // 270° arc
+  const gapLen   = 0.25 * C;
+  const fillLen  = Math.min(points / WIN_THRESHOLD, 1) * trackLen;
+  const rotation = `rotate(135, ${cx}, ${cy})`;
+
+  return (
+    <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+      {/* Dimmed track */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke={color}
+        strokeOpacity="0.18"
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeDasharray={`${trackLen} ${gapLen}`}
+        transform={rotation}
+      />
+      {/* Filled arc */}
+      {fillLen > 0.5 && (
+        <circle
+          cx={cx} cy={cy} r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={`${fillLen} ${C - fillLen}`}
+          transform={rotation}
+        />
+      )}
+    </svg>
+  );
+}
+
 // ─── Main Leaderboard ─────────────────────────────────────────────────────────
 export default function Leaderboard() {
   const { allScores } = useAllScores();
@@ -43,6 +85,12 @@ export default function Leaderboard() {
               {team1 % 1 === 0 ? team1 : team1.toFixed(1)}
             </div>
             <div className="text-fairway-500 text-xs mt-1">Derek · Brandon · Tyson · Todd</div>
+            <div className="flex justify-center mt-2">
+              <PointsDial points={team1} color="#60a5fa" />
+            </div>
+            {team1 >= WIN_THRESHOLD && (
+              <div className="text-gold-400 text-xs font-bold mt-1 tracking-wide">🏆 CHAMPION</div>
+            )}
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -59,22 +107,13 @@ export default function Leaderboard() {
               {team2 % 1 === 0 ? team2 : team2.toFixed(1)}
             </div>
             <div className="text-fairway-500 text-xs mt-1">Gary · Slim · Mike · Ketan</div>
+            <div className="flex justify-center mt-2">
+              <PointsDial points={team2} color="#f87171" />
+            </div>
+            {team2 >= WIN_THRESHOLD && (
+              <div className="text-gold-400 text-xs font-bold mt-1 tracking-wide">🏆 CHAMPION</div>
+            )}
           </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-4 h-2 bg-fairway-700 rounded-full overflow-hidden">
-          {totalPlayed > 0 && (
-            <div
-              className="h-full bg-gradient-to-r from-fairway-400 to-gold-500 transition-all duration-700 rounded-full"
-              style={{ width: `${(team1 / totalPlayed) * 100}%` }}
-            />
-          )}
-        </div>
-        <div className="flex justify-between text-fairway-600 text-xs mt-1">
-          <span>Team 1</span>
-          <span className="text-fairway-700 text-xs">1 pt/hole won · +1 match bonus</span>
-          <span>Team 2</span>
         </div>
       </div>
     </div>
