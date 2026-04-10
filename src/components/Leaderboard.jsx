@@ -44,7 +44,7 @@ function PointsDial({ points, color }) {
         />
       )}
       {/* Threshold label */}
-      <text x={cx} y="76" textAnchor="middle" fontSize="9" fill="#6b7280">97.5</text>
+      <text x={cx} y="77" textAnchor="middle" fontSize="11" fontWeight="600" fill="#9ca3af">97.5</text>
     </svg>
   );
 }
