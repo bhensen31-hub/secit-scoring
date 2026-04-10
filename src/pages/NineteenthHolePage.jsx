@@ -7,7 +7,7 @@ const ALL_PLAYERS = [...TEAM1_PLAYERS, ...TEAM2_PLAYERS];
 
 export default function NineteenthHolePage() {
   const [myPlayer, setMyPlayer] = useState(() => localStorage.getItem(PLAYER_KEY));
-  const { drinkCounts, loading, logDrink, isConnected } = useDrinks();
+  const { drinkCounts, loading, logDrink, removeDrink, isConnected } = useDrinks();
 
   const handleSelectPlayer = (id) => {
     setMyPlayer(id);
@@ -81,19 +81,17 @@ export default function NineteenthHolePage() {
             const isTeam1 = PLAYERS[id].team === 1;
 
             return (
-              <button
+              <div
                 key={id}
-                onClick={() => isMe && logDrink(id)}
-                disabled={!isMe}
                 className={`rounded-xl p-4 flex items-center justify-between transition-all
                   ${isMe
                     ? isTeam1
-                      ? 'bg-fairway-700 border-2 border-fairway-500 active:scale-95 hover:bg-fairway-600'
-                      : 'bg-rough-800 border-2 border-rough-600 active:scale-95 hover:bg-rough-700'
-                    : 'bg-fairway-900 border border-fairway-800 cursor-not-allowed'
+                      ? 'bg-fairway-700 border-2 border-fairway-500'
+                      : 'bg-rough-800 border-2 border-rough-600'
+                    : 'bg-fairway-900 border border-fairway-800'
                   }`}
               >
-                <div className="text-left">
+                <div className="text-left min-w-0 flex-1">
                   <div className={`font-semibold text-sm ${isMe ? 'text-white' : 'text-fairway-600'}`}>
                     {PLAYERS[id].name}
                   </div>
@@ -101,11 +99,31 @@ export default function NineteenthHolePage() {
                     {count > 0 ? `${count} 🍺` : '–'}
                   </div>
                 </div>
-                <div className={`text-3xl font-bold leading-none transition-colors
-                  ${isMe ? 'text-gold-400' : 'text-fairway-800'}`}>
-                  +
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => isMe && count > 0 && removeDrink(id)}
+                    disabled={!isMe || count === 0}
+                    className={`w-9 h-9 rounded-lg text-xl font-bold leading-none transition-all active:scale-90
+                      ${isMe && count > 0
+                        ? 'bg-fairway-600 text-fairway-200 hover:bg-fairway-500'
+                        : 'bg-fairway-800 text-fairway-700 cursor-not-allowed'
+                      }`}
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={() => isMe && logDrink(id)}
+                    disabled={!isMe}
+                    className={`w-9 h-9 rounded-lg text-xl font-bold leading-none transition-all active:scale-90
+                      ${isMe
+                        ? 'bg-gold-500 text-fairway-900 hover:bg-gold-400'
+                        : 'bg-fairway-800 text-fairway-700 cursor-not-allowed'
+                      }`}
+                  >
+                    +
+                  </button>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>

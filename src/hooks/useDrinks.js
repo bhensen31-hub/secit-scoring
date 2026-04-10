@@ -14,7 +14,7 @@ export function useDrinks() {
   useEffect(() => {
     supabase
       .from('drinks')
-      .select('player_id')
+      .select('id, player_id')
       .then(({ data }) => {
         setRows(data || []);
         setLoading(false);
@@ -27,6 +27,13 @@ export function useDrinks() {
         { event: 'INSERT', schema: 'public', table: 'drinks' },
         (payload) => {
           setRows(prev => [...prev, payload.new]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'drinks' },
+        (payload) => {
+          setRows(prev => prev.filter(r => r.id !== payload.old.id));
         }
       )
       .subscribe((status) => {
@@ -49,10 +56,23 @@ export function useDrinks() {
     return { error };
   }, []);
 
+  const removeDrink = useCallback(async (playerId) => {
+    // Find the most recent row for this player and delete it
+    const { data, error: fetchErr } = await supabase
+      .from('drinks')
+      .select('id')
+      .eq('player_id', playerId)
+      .order('logged_at', { ascending: false })
+      .limit(1);
+    if (fetchErr || !data?.length) return { error: fetchErr };
+    const { error } = await supabase.from('drinks').delete().eq('id', data[0].id);
+    return { error };
+  }, []);
+
   const drinkCounts = rows.reduce((acc, r) => {
     acc[r.player_id] = (acc[r.player_id] || 0) + 1;
     return acc;
   }, {});
 
-  return { drinkCounts, loading, logDrink, isConnected };
+  return { drinkCounts, loading, logDrink, removeDrink, isConnected };
 }

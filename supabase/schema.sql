@@ -81,6 +81,10 @@ create policy "anyone can log drinks"
   on drinks for insert
   with check (true);
 
+create policy "anyone can delete drinks"
+  on drinks for delete
+  using (true);
+
 -- ─── Real-time ────────────────────────────────────────────────────────────────
 -- Enable real-time for the hole_scores table.
 -- In Supabase Dashboard → Database → Replication, enable hole_scores.

@@ -19,7 +19,7 @@ function PointsDial({ points, color }) {
   const rotation = `rotate(135, ${cx}, ${cy})`;
 
   return (
-    <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+    <svg width="72" height="80" viewBox="0 0 72 80" aria-hidden="true">
       {/* Dimmed track */}
       <circle
         cx={cx} cy={cy} r={r}
@@ -43,6 +43,8 @@ function PointsDial({ points, color }) {
           transform={rotation}
         />
       )}
+      {/* Threshold label */}
+      <text x={cx} y="76" textAnchor="middle" fontSize="9" fill="#6b7280">97.5</text>
     </svg>
   );
 }
