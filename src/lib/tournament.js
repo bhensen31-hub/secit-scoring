@@ -9,13 +9,13 @@ export const COURSE = {
 };
 
 // Used for the Final Singles round only
-export const ECHELON_COURSE = {
-  name: 'Echelon Golf Club',
-  rating: 71.5,
-  slope: 128,
+export const LEGACY_COURSE = {
+  name: 'Legacy on Lanier Golf Club',
+  rating: 71.0,
+  slope: 137,
   par: 72,
-  pars: [4, 4, 3, 5, 4, 4, 5, 3, 4, 4, 5, 4, 4, 5, 3, 4, 3, 4],
-  strokeIndex: [9, 13, 15, 1, 11, 7, 3, 17, 5, 14, 2, 12, 8, 4, 16, 10, 18, 6],
+  pars: [5, 3, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 4, 3, 4, 5, 4],
+  strokeIndex: [9, 15, 5, 7, 17, 1, 13, 11, 3, 18, 4, 6, 8, 2, 16, 14, 10, 12],
 };
 
 // ─── Players ─────────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export const ROUNDS = [
     id: 'singles',
     number: 4,
     name: 'Final Singles',
-    course: ECHELON_COURSE,
+    course: LEGACY_COURSE,
     subtitle: 'Two 9-Hole Matches Per Player',
     format: 'singles',
     countsForCup: true,
