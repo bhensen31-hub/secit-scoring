@@ -27,7 +27,7 @@ export default function MatchupPage() {
         <span className="text-fairway-700">›</span>
         <span className="text-fairway-300">{round.name}</span>
         <span className="text-fairway-700">›</span>
-        <span className="text-white truncate">{matchup.shortLabel}</span>
+        <span className="text-white truncate">{matchup.label}</span>
       </div>
 
       {/* Connection indicator */}

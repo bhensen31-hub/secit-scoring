@@ -196,7 +196,7 @@ function MatchupRow({ matchup, round, allScores }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-white text-sm font-medium leading-snug">{matchup.shortLabel}</div>
+          <div className="text-white text-sm font-medium leading-snug">{matchup.label}</div>
           <div className="text-fairway-400 text-xs mt-0.5">{statusStr}</div>
           {holesPlayed > 0 && (
             <div className="text-fairway-600 text-xs mt-0.5">
