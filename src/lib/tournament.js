@@ -4,8 +4,8 @@ export const COURSE = {
   rating: 71.5,
   slope: 128,
   par: 72,
-  pars: [4, 4, 3, 4, 5, 3, 4, 4, 4, 4, 5, 3, 4, 4, 3, 4, 4, 5],
-  strokeIndex: [7, 13, 3, 11, 1, 15, 5, 9, 17, 2, 8, 14, 4, 10, 18, 6, 12, 16],
+  pars: [4, 5, 4, 4, 4, 3, 5, 3, 4, 4, 4, 5, 4, 3, 4, 4, 3, 5],
+  strokeIndex: [13, 9, 7, 3, 1, 15, 11, 17, 5, 8, 14, 10, 4, 18, 6, 2, 16, 12],
 };
 
 // Used for the Final Singles round only
