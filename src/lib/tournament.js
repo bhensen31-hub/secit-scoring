@@ -82,11 +82,11 @@ export const ROUNDS = [
     id: 'match1',
     number: 1,
     name: 'Match 1',
-    subtitle: 'Modified Alternate Shot',
-    format: 'modified_alternate_shot',
+    subtitle: 'Best Ball',
+    format: 'best_ball',
     countsForCup: true,
     description:
-      'Both partners hit tee shot. Then partners alternate shots. Team handicap = 50% of combined course handicaps. 1 pt per hole won + 1 match bonus.',
+      'Each player plays own ball. Best net score per team counts per hole. 1 pt per hole won + 1 match bonus.',
     matchups: [
       {
         id: 'match1-1',
