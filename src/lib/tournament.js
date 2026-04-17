@@ -84,9 +84,10 @@ export const ROUNDS = [
     name: 'Match 1',
     subtitle: 'Best Ball',
     format: 'best_ball',
+    handicapMode: 'off_the_low',
     countsForCup: true,
     description:
-      'Each player plays own ball. Best net score per team counts per hole. 1 pt per hole won + 1 match bonus.',
+      'Each player plays own ball. Handicaps played off the low — strokes are the difference from the lowest handicap player. Best net score per team counts per hole. 1 pt per hole won + 1 match bonus.',
     matchups: [
       {
         id: 'match1-1',

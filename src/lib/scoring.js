@@ -19,10 +19,10 @@ export function strokesOnHole(playerCourseHcp, holeStrokeIndex) {
   return strokes;
 }
 
-export function netScore(grossScore, playerId, holeNumber, course = COURSE) {
+export function netScore(grossScore, playerId, holeNumber, course = COURSE, hcpOffset = 0) {
   if (!grossScore || grossScore <= 0) return null;
   const si = course.strokeIndex[holeNumber - 1];
-  const hcp = courseHandicap(playerId);
+  const hcp = courseHandicap(playerId) - hcpOffset;
   return grossScore - strokesOnHole(hcp, si);
 }
 
@@ -60,6 +60,13 @@ export function calculateMatchStatus(holeScores, matchup, round) {
   const { start = 1, end = 18 } = matchup.holeRange || {};
   const totalHoles = end - start + 1;
 
+  // For "off the low" handicap mode, find the lowest course handicap in the matchup
+  let hcpOffset = 0;
+  if (round.handicapMode === 'off_the_low') {
+    const allPlayers = [...matchup.team1Players, ...matchup.team2Players];
+    hcpOffset = Math.min(...allPlayers.map(courseHandicap));
+  }
+
   const results = [];
   let holesUp = 0;
 
@@ -69,10 +76,10 @@ export function calculateMatchStatus(holeScores, matchup, round) {
 
     if (round.format === 'singles' || round.format === 'best_ball' || round.format === 'cash_game') {
       const t1Nets = matchup.team1Players
-        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole, course))
+        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole, course, hcpOffset))
         .filter(n => n !== null);
       const t2Nets = matchup.team2Players
-        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole, course))
+        .map(pid => netScore(holeScores[`${pid}-${hole}`], pid, hole, course, hcpOffset))
         .filter(n => n !== null);
       if (t1Nets.length > 0) team1Net = Math.min(...t1Nets);
       if (t2Nets.length > 0) team2Net = Math.min(...t2Nets);

@@ -195,6 +195,9 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
   const currentCashHole = cashHoleMap ? cashHoleMap[currentHole] : null;
 
   const course = round.course || COURSE;
+  const hcpOffset = round.handicapMode === 'off_the_low'
+    ? Math.min(...[...matchup.team1Players, ...matchup.team2Players].map(courseHandicap))
+    : 0;
   const par = course.pars[currentHole - 1];
   const si = course.strokeIndex[currentHole - 1];
 
@@ -336,6 +339,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
           canEdit={canEnterTeam1}
           onSave={upsertScore}
           course={course}
+          hcpOffset={hcpOffset}
         />
         <TeamScorePanel
           title={t2Label}
@@ -347,6 +351,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
           scores={scores}
           canEdit={canEnterTeam2}
           onSave={upsertScore}
+          hcpOffset={hcpOffset}
           course={course}
         />
       </div>
@@ -384,7 +389,7 @@ export default function ScorecardView({ matchup, round, scores, upsertScore }) {
 }
 
 // ─── Team Score Panel ─────────────────────────────────────────────────────────
-function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumber, scores, canEdit, onSave, course }) {
+function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumber, scores, canEdit, onSave, course, hcpOffset = 0 }) {
   if (isTeamFormat) {
     const keyPlayer = teamScoreKey(players);
     const gross = scores[`${keyPlayer}-${holeNumber}`] || null;
@@ -429,11 +434,11 @@ function TeamScorePanel({ title, isLeft, players, isTeamFormat, round, holeNumbe
       <div className={`px-3 py-1 ${isLeft ? 'bg-fairway-800/40' : 'bg-rough-900/40'}`}>
         {players.map(pid => {
           const gross = scores[`${pid}-${holeNumber}`] || null;
-          const net = netScore(gross, pid, holeNumber, course);
-          const hcp = COURSE_HANDICAPS[pid];
+          const net = netScore(gross, pid, holeNumber, course, hcpOffset);
+          const adjustedHcp = COURSE_HANDICAPS[pid] - hcpOffset;
           const si = course.strokeIndex[holeNumber - 1];
-          const strokes = strokesOnHole(hcp, si);
-          const label = `${PLAYERS[pid].name} (CH ${hcp}${strokes > 0 ? `, −${strokes}` : ''})`;
+          const strokes = strokesOnHole(adjustedHcp, si);
+          const label = `${PLAYERS[pid].name} (CH ${adjustedHcp}${strokes > 0 ? `, −${strokes}` : ''})`;
           return (
             <ScoreInput
               key={pid}
